@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Panel Principal{% endblock %}
+{% block content %}
+  <div class="p-5 mb-4 bg-white rounded-3 shadow">
+    <div class="container-fluid py-5">
+      <h1 class="display-5 fw-bold">Bienvenido al Sistema, {{ session.username }}!</h1>
+      <p class="col-md-8 fs-4">Usa la barra de navegación para gestionar las diferentes áreas del hotel.</p>
+      <hr>
+      <p>Este es el panel principal. Desde aquí puedes navegar a las secciones de Personal, Habitaciones y, si eres administrador, Edificios.</p>
+    </div>
+  </div>
+{% endblock %}

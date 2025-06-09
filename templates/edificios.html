@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Gestionar Edificios{% endblock %}
+{% block content %}
+  <h2 class="mb-4">Gestionar Edificios</h2>
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header"><h5 class="mb-0">Agregar Nuevo Edificio</h5></div>
+    <div class="card-body">
+      <form method="post">
+        <div class="row">
+          <div class="col-md-5 mb-3"><input type="text" name="nombre" class="form-control" placeholder="Nombre del Edificio" required></div>
+          <div class="col-md-5 mb-3"><input type="text" name="direccion" class="form-control" placeholder="Dirección" required></div>
+          <div class="col-md-2 d-grid mb-3"><button type="submit" class="btn btn-primary">Agregar</button></div>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div class="card shadow-sm">
+    <div class="card-header"><h5 class="mb-0">Edificios Registrados</h5></div>
+    <div class="table-responsive"><table class="table table-striped table-hover mb-0">
+        <thead><tr><th>ID</th><th>Nombre</th><th>Dirección</th></tr></thead>
+        <tbody>
+          {% for e in edificios %}
+          <tr><td>{{ e.id }}</td><td>{{ e.nombre }}</td><td>{{ e.direccion }}</td></tr>
+          {% else %}
+          <tr><td colspan="3" class="text-center">No hay edificios registrados.</td></tr>
+          {% endfor %}
+        </tbody>
+    </table></div>
+  </div>
+{% endblock %}

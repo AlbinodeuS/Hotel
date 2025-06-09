@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Gestionar Habitaciones{% endblock %}
+{% block content %}
+  <h2 class="mb-4">Gestionar Habitaciones</h2>
+  {% if session.role == 'kroot' %}
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header"><h5 class="mb-0">Agregar Nueva Habitación</h5></div>
+    <div class="card-body">
+      <form method="post">
+        <div class="row">
+          <div class="col-md-3 mb-3"><input type="text" name="numero" class="form-control" placeholder="Número Hab." required></div>
+          <div class="col-md-4 mb-3">
+            <select name="id_edificio" class="form-select" required>
+                <option value="" disabled selected>Seleccionar Edificio</option>
+                {% for e in edificios %}<option value="{{ e.id }}">{{ e.nombre }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3 mb-3">
+            <select name="tipo" class="form-select" required>
+                <option value="" disabled selected>Seleccionar Tipo</option>
+                <option value="Individual">Individual</option><option value="Doble">Doble</option><option value="Suite">Suite</option>
+            </select>
+          </div>
+          <div class="col-md-2 d-grid mb-3"><button type="submit" class="btn btn-primary">Agregar</button></div>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+  <div class="card shadow-sm">
+    <div class="card-header"><h5 class="mb-0">Listado de Habitaciones</h5></div>
+    <div class="table-responsive"><table class="table table-striped table-hover mb-0">
+        <thead><tr><th>Número</th><th>Tipo</th><th>Edificio</th><th>Estado</th></tr></thead>
+        <tbody>
+          {% for h in habitaciones %}
+          <tr>
+            <td>{{ h.numero_habitacion }}</td>
+            <td>{{ h.tipo }}</td>
+            <td>{{ h.nombre_edificio }}</td>
+            <td>
+                {% if h.estado == 'Disponible' %}<span class="badge bg-success">{{ h.estado }}</span>
+                {% elif h.estado == 'Ocupada' %}<span class="badge bg-danger">{{ h.estado }}</span>
+                {% else %}<span class="badge bg-warning text-dark">{{ h.estado }}</span>
+                {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="text-center">No hay habitaciones registradas.</td></tr>
+          {% endfor %}
+        </tbody>
+    </table></div>
+  </div>
+{% endblock %}
