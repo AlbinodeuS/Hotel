@@ -12,30 +12,40 @@ with open('schema.sql') as f:
 
 cur = connection.cursor()
 
-# --- Crear Usuario Admin ---
-# Contraseña es "admin". Se guarda hasheada por seguridad.
+# --- DATOS DE EJEMPLO ---
+# Usuarios
 admin_password = generate_password_hash('admin')
-cur.execute("INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)",
-            ('admin', admin_password, 'kroot'))
+cur.execute("INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)", ('admin', admin_password, 'kroot'))
+cur.execute("INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)", ('staff', generate_password_hash('1234'), 'staff'))
 
-# --- Crear Edificios ---
+# Edificios
 cur.execute("INSERT INTO edificios (nombre, direccion) VALUES (?, ?)", ('Torre Principal', 'Av. Principal 123'))
 cur.execute("INSERT INTO edificios (nombre, direccion) VALUES (?, ?)", ('Anexo Playa', 'Calle Costa 456'))
 
-# --- Crear Personal y asignarlo a edificios ---
+# Personal
 cur.execute("INSERT INTO personal (id_edificio, nombre_completo, puesto) VALUES (?, ?, ?)", (1, 'Juan Pérez', 'Recepcionista Principal'))
-cur.execute("INSERT INTO personal (id_edificio, nombre_completo, puesto) VALUES (?, ?, ?)", (1, 'Ana Gómez', 'Limpieza Torre'))
 cur.execute("INSERT INTO personal (id_edificio, nombre_completo, puesto) VALUES (?, ?, ?)", (2, 'Carlos Ruiz', 'Recepcionista Anexo'))
-cur.execute("INSERT INTO personal (id_edificio, nombre_completo, puesto) VALUES (?, ?, ?)", (2, 'María Soto', 'Limpieza Playa'))
 
-# --- Crear Habitaciones y asignarlas a edificios ---
+# Habitaciones
 cur.execute("INSERT INTO habitaciones (id_edificio, numero_habitacion, tipo) VALUES (?, ?, ?)", (1, '101', 'Individual'))
-cur.execute("INSERT INTO habitaciones (id_edificio, numero_habitacion, tipo) VALUES (?, ?, ?)", (1, '102', 'Doble'))
+cur.execute("INSERT INTO habitaciones (id_edificio, numero_habitacion, tipo, estado) VALUES (?, ?, ?, ?)", (1, '102', 'Doble', 'Ocupada'))
 cur.execute("INSERT INTO habitaciones (id_edificio, numero_habitacion, tipo) VALUES (?, ?, ?)", (2, 'A01', 'Suite'))
-cur.execute("INSERT INTO habitaciones (id_edificio, numero_habitacion, tipo) VALUES (?, ?, ?)", (2, 'A02', 'Individual'))
+
+# Clientes
+cur.execute("INSERT INTO clientes (nombre_completo, rut_documento, email) VALUES (?, ?, ?)", ('Ana Martínez', '11.111.111-1', 'ana.martinez@email.com'))
+cur.execute("INSERT INTO clientes (nombre_completo, rut_documento, email) VALUES (?, ?, ?)", ('Luis García', '22.222.222-2', 'luis.garcia@email.com'))
+
+# Reservas
+cur.execute("UPDATE habitaciones SET estado = 'Ocupada', fecha_disponible = '2025-06-15' WHERE id = 2")
+cur.execute("INSERT INTO reservas (id_cliente, id_habitacion, fecha_check_in, fecha_check_out) VALUES (?, ?, ?, ?)", (1, 2, '2025-06-10', '2025-06-15'))
+
+# Servicios Adicionales
+cur.execute("INSERT INTO servicios_adicionales (nombre_servicio, precio) VALUES (?, ?)", ('Desayuno Buffet', 15000))
+cur.execute("INSERT INTO servicios_adicionales (nombre_servicio, precio) VALUES (?, ?)", ('Acceso a Spa', 30000))
 
 connection.commit()
 connection.close()
 
-print(f"Base de datos '{DB_FILE}' creada con éxito.")
-print("Usuario por defecto: admin, Contraseña: admin")
+print(f"Base de datos '{DB_FILE}' creada con toda la estructura y datos de ejemplo.")
+print("Usuario Admin: admin / Pass: admin")
+print("Usuario Staff: staff / Pass: 1234")
