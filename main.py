@@ -63,6 +63,7 @@ class HotelApp(ctk.CTk):
         self.current_view = "personal"
         self.personal_map = {}; self.building_map = {}
         self.selected_staff_id = None
+        self.selected_client_id = None
         self.selected_room_id = None
         self.selected_building_id_mgmt = None
         self.selected_client_id = None # ID del cliente seleccionado
