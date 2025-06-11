@@ -2,6 +2,9 @@ DROP TABLE IF EXISTS usuarios;
 DROP TABLE IF EXISTS habitaciones;
 DROP TABLE IF EXISTS personal;
 DROP TABLE IF EXISTS edificios;
+DROP TABLE IF EXISTS clientes;
+DROP TABLE IF EXISTS reservas;
+DROP TABLE IF EXISTS servicios_adicionales;
 
 CREATE TABLE usuarios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,4 +38,28 @@ CREATE TABLE habitaciones (
     id_personal_asignado INTEGER,
     FOREIGN KEY (id_edificio) REFERENCES edificios (id),
     FOREIGN KEY (id_personal_asignado) REFERENCES personal (id)
+);
+
+CREATE TABLE clientes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre_completo TEXT NOT NULL,
+    rut_documento TEXT UNIQUE NOT NULL,
+    email TEXT,
+    telefono TEXT
+);
+
+CREATE TABLE reservas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_cliente INTEGER NOT NULL,
+    id_habitacion INTEGER NOT NULL,
+    fecha_check_in TEXT NOT NULL,
+    fecha_check_out TEXT NOT NULL,
+    FOREIGN KEY (id_cliente) REFERENCES clientes (id),
+    FOREIGN KEY (id_habitacion) REFERENCES habitaciones (id)
+);
+
+CREATE TABLE servicios_adicionales (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre_servicio TEXT NOT NULL,
+    precio REAL NOT NULL
 );
