@@ -2,6 +2,8 @@ import customtkinter as ctk
 import sqlite3
 from tkinter import ttk, messagebox
 from werkzeug.security import check_password_hash, generate_password_hash
+from datetime import datetime
+import pytz 
 
 # --- CONFIGURACIÓN DE APARIENCIA ---
 ctk.set_appearance_mode("System")
@@ -67,6 +69,7 @@ class HotelApp(ctk.CTk):
         self.selected_room_id = None
         self.selected_building_id_mgmt = None
         self.selected_reservation_id = None # ID de la reserva seleccionada
+        self.selected_service_id = None # ID del servicio seleccionado
         
         self.client_map = {} # Mapa de clientes para los menús
         self.available_rooms_map = {} # Mapa de habitaciones disponibles
@@ -91,34 +94,35 @@ class HotelApp(ctk.CTk):
         self.building_selector = ctk.CTkOptionMenu(self.top_frame, values=[""], command=self.on_building_change)
         self.building_selector.pack(side="left", padx=10, pady=10)
 
-def setup_nav_frame(self):
-    nav_frame = ctk.CTkFrame(self, width=180, corner_radius=0)
-    nav_frame.grid(row=1, column=0, sticky="nsew")
-    nav_frame.grid_rowconfigure(8, weight=1) 
-    
-    ctk.CTkLabel(nav_frame, text="HotelPy", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=20, pady=20)
-    
-    self.btn_personal = ctk.CTkButton(nav_frame, text="Personal", command=self.mostrar_vista_personal)
-    self.btn_personal.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
-    
-    self.btn_habitaciones = ctk.CTkButton(nav_frame, text="Habitaciones", command=self.mostrar_vista_habitaciones)
-    self.btn_habitaciones.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
-    
-    self.btn_clientes = ctk.CTkButton(nav_frame, text="Clientes", command=self.mostrar_vista_clientes)
-    self.btn_clientes.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
+    def setup_nav_frame(self):
+        nav_frame = ctk.CTkFrame(self, width=180, corner_radius=0)
+        nav_frame.grid(row=1, column=0, sticky="nsew")
+        nav_frame.grid_rowconfigure(8, weight=1) 
+        
+        ctk.CTkLabel(nav_frame, text="HotelPy", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=20, pady=20)
+        
+        self.btn_personal = ctk.CTkButton(nav_frame, text="Personal", command=self.mostrar_vista_personal)
+        self.btn_personal.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
+        
+        self.btn_habitaciones = ctk.CTkButton(nav_frame, text="Habitaciones", command=self.mostrar_vista_habitaciones)
+        self.btn_habitaciones.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
+        
+        self.btn_clientes = ctk.CTkButton(nav_frame, text="Clientes", command=self.mostrar_vista_clientes)
+        self.btn_clientes.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
 
-    self.btn_reservas = ctk.CTkButton(nav_frame, text="Reservas", command=self.mostrar_vista_reservas)
-    self.btn_reservas.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
+        self.btn_reservas = ctk.CTkButton(nav_frame, text="Reservas", command=self.mostrar_vista_reservas)
+        self.btn_reservas.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
 
-    self.btn_servicios = ctk.CTkButton(nav_frame, text="Servicios", command=self.mostrar_vista_servicios)
-    self.btn_servicios.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
-    
-    
-    ctk.CTkLabel(nav_frame, text="Administración", font=ctk.CTkFont(size=12, weight="bold", slant="italic")).grid(row=6, column=0, padx=20, pady=(20, 0), sticky="w")
-    self.btn_edificios = ctk.CTkButton(nav_frame, text="Edificios", fg_color="#565b5e", hover_color="#6c7174", command=self.mostrar_vista_edificios)
-    self.btn_edificios.grid(row=7, column=0, padx=20, pady=10, sticky="ew")
+        self.btn_servicios = ctk.CTkButton(nav_frame, text="Servicios", command=self.mostrar_vista_servicios)
+        self.btn_servicios.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
+        
+        
+        ctk.CTkLabel(nav_frame, text="Administración", font=ctk.CTkFont(size=12, weight="bold", slant="italic")).grid(row=6, column=0, padx=20, pady=(20, 0), sticky="w")
+        self.btn_edificios = ctk.CTkButton(nav_frame, text="Edificios", fg_color="#565b5e", hover_color="#6c7174", command=self.mostrar_vista_edificios)
+        self.btn_edificios.grid(row=7, column=0, padx=20, pady=10, sticky="ew")
 
-    def db_connect(self): return sqlite3.connect('hotel.db')
+    def db_connect(self): 
+        return sqlite3.connect('hotel.db')
 
     def limpiar_frame_principal(self):
         for widget in self.main_frame.winfo_children(): widget.destroy()
@@ -187,21 +191,19 @@ def setup_nav_frame(self):
         container = ctk.CTkFrame(self.main_frame, fg_color="transparent"); container.pack(fill="both", expand=True)
         self.setup_edificios_view(container)
         
-    # --- NUEVA VISTA DE CLIENTES ---
+    # --- CRUD Clientes ---
     def mostrar_vista_clientes(self):
         self.current_view = "clientes"
-        self.top_frame.grid_remove()  # Oculta el selector de edificios
+        self.top_frame.grid_remove()
         self.limpiar_frame_principal()
         container = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         container.pack(fill="both", expand=True)
         self.setup_clientes_view(container)
 
-    # --- VISTA Y LÓGICA DE GESTIÓN DE CLIENTES ---
     def setup_clientes_view(self, parent_container):
         parent_container.grid_columnconfigure(0, weight=1); parent_container.grid_rowconfigure(1, weight=3); parent_container.grid_rowconfigure(2, weight=1)
         ctk.CTkLabel(parent_container, text="Gestión de Clientes", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=10, pady=(10,15), sticky="w")
         
-        # Tabla de Clientes
         tabla_frame = ctk.CTkFrame(parent_container); tabla_frame.grid(row=1, column=0, sticky="nsew", padx=10)
         tabla_frame.grid_columnconfigure(0, weight=1); tabla_frame.grid_rowconfigure(0, weight=1)
         self.tree_clientes = ttk.Treeview(tabla_frame, columns=("ID", "Nombre", "RUT", "Email", "Teléfono"), show="headings")
@@ -214,11 +216,9 @@ def setup_nav_frame(self):
         self.refrescar_tabla_clientes()
         self.tree_clientes.bind("<<TreeviewSelect>>", self.on_cliente_select)
         
-        # Paneles de Acciones
         acciones_frame = ctk.CTkFrame(parent_container, fg_color="transparent"); acciones_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=10)
         acciones_frame.grid_columnconfigure((0, 1), weight=1)
         
-        # Panel Agregar Cliente
         agregar_frame = ctk.CTkFrame(acciones_frame, border_width=1); agregar_frame.grid(row=0, column=0, padx=(0, 5), pady=5, sticky="nsew")
         agregar_frame.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(agregar_frame, text="Agregar Nuevo Cliente", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=(5,10))
@@ -228,7 +228,6 @@ def setup_nav_frame(self):
         self.add_telefono_cliente = ctk.CTkEntry(agregar_frame, placeholder_text="Teléfono"); self.add_telefono_cliente.grid(row=4, column=0, padx=10, pady=5, sticky="ew")
         ctk.CTkButton(agregar_frame, text="Agregar Cliente", command=self.agregar_cliente).grid(row=5, column=0, padx=10, pady=10, sticky="ew")
 
-        # Panel Editar/Eliminar Cliente
         self.edit_frame_cliente = ctk.CTkFrame(acciones_frame, border_width=1); self.edit_frame_cliente.grid(row=0, column=1, padx=(5, 0), pady=5, sticky="nsew")
         self.edit_frame_cliente.grid_columnconfigure((0,1,2), weight=1)
         ctk.CTkLabel(self.edit_frame_cliente, text="Editar Cliente Seleccionado", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, columnspan=3, padx=10, pady=(5,10))
@@ -275,7 +274,6 @@ def setup_nav_frame(self):
             cursor.execute("INSERT INTO clientes (nombre_completo, rut_documento, email, telefono) VALUES (?, ?, ?, ?)", (nombre, rut, email, telefono))
             conn.commit(); conn.close()
             
-            # Limpiar campos de entrada
             self.add_nombre_cliente.delete(0, "end")
             self.add_rut_cliente.delete(0, "end")
             self.add_email_cliente.delete(0, "end")
@@ -288,7 +286,6 @@ def setup_nav_frame(self):
 
     def actualizar_cliente(self):
         if not self.selected_client_id: return
-
         nombre = self.edit_nombre_cliente.get()
         rut = self.edit_rut_cliente.get()
         email = self.edit_email_cliente.get()
@@ -311,7 +308,6 @@ def setup_nav_frame(self):
     def eliminar_cliente(self):
         if not self.selected_client_id: return
         
-        # Verificar si el cliente tiene reservas
         conn = self.db_connect(); cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM reservas WHERE id_cliente = ?", (self.selected_client_id,))
         reservas_count = cursor.fetchone()[0]
@@ -340,7 +336,8 @@ def setup_nav_frame(self):
         for child in self.edit_frame_cliente.winfo_children():
             if isinstance(child, (ctk.CTkEntry, ctk.CTkButton)):
                 child.configure(state=state)
-    # --- VISTA Y LÓGICA DE GESTIÓN DE RESERVAS ---
+
+    # --- CRUD Reservas ---
     def mostrar_vista_reservas(self):
         self.current_view = "reservas"; self.top_frame.grid()
         self.limpiar_frame_principal()
@@ -353,7 +350,6 @@ def setup_nav_frame(self):
         parent_container.grid_rowconfigure(1, weight=1)
         ctk.CTkLabel(parent_container, text=f"Gestión de Reservas - {self.building_selector.get()}", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, columnspan=2, padx=10, pady=(10,15), sticky="w")
         
-        # Panel Izquierdo: Tabla de Reservas
         tabla_frame = ctk.CTkFrame(parent_container); tabla_frame.grid(row=1, column=0, sticky="nsew", padx=(10, 5))
         tabla_frame.grid_columnconfigure(0, weight=1); tabla_frame.grid_rowconfigure(0, weight=1)
         self.tree_reservas = ttk.Treeview(tabla_frame, columns=("ID", "Cliente", "Habitación", "Check-in", "Check-out"), show="headings")
@@ -366,11 +362,9 @@ def setup_nav_frame(self):
         self.refrescar_tabla_reservas()
         self.tree_reservas.bind("<<TreeviewSelect>>", self.on_reserva_select)
         
-        # Panel Derecho: Acciones
         acciones_frame = ctk.CTkFrame(parent_container, fg_color="transparent"); acciones_frame.grid(row=1, column=1, sticky="nsew", padx=(5, 10))
         acciones_frame.grid_rowconfigure(1, weight=1)
 
-        # Formulario para Crear Reserva
         crear_reserva_frame = ctk.CTkFrame(acciones_frame, border_width=1); crear_reserva_frame.grid(row=0, column=0, sticky="ew")
         crear_reserva_frame.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(crear_reserva_frame, text="Crear Nueva Reserva", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=(10,5))
@@ -389,7 +383,6 @@ def setup_nav_frame(self):
 
         ctk.CTkButton(crear_reserva_frame, text="Confirmar Reserva", command=self.crear_reserva).grid(row=9, column=0, padx=10, pady=10, sticky="ew")
 
-        # Panel para Cancelar Reserva
         self.cancelar_reserva_frame = ctk.CTkFrame(acciones_frame, border_width=1); self.cancelar_reserva_frame.grid(row=1, column=0, sticky="sew", pady=(10,0))
         self.cancelar_reserva_frame.grid_columnconfigure(0, weight=1)
         self.label_cancelar = ctk.CTkLabel(self.cancelar_reserva_frame, text="Seleccione una reserva para cancelarla", wraplength=250)
@@ -415,7 +408,6 @@ def setup_nav_frame(self):
         conn.close()
 
     def actualizar_selectores_reserva(self):
-        # Actualizar clientes
         conn = self.db_connect(); cursor = conn.cursor()
         cursor.execute("SELECT id, nombre_completo FROM clientes ORDER BY nombre_completo")
         clientes = cursor.fetchall()
@@ -424,7 +416,6 @@ def setup_nav_frame(self):
         self.reserva_cliente_selector.configure(values=lista_clientes)
         if lista_clientes[0] != "No hay clientes": self.reserva_cliente_selector.set(lista_clientes[0])
 
-        # Actualizar habitaciones disponibles
         cursor.execute("SELECT id, numero_habitacion FROM habitaciones WHERE id_edificio = ? AND estado = 'Disponible' ORDER BY numero_habitacion", (self.current_building_id,))
         habitaciones = cursor.fetchall()
         self.available_rooms_map = {f"Hab. {num}": id for id, num in habitaciones}
@@ -463,11 +454,9 @@ def setup_nav_frame(self):
         
         conn = self.db_connect(); cursor = conn.cursor()
         try:
-            # Insertar la nueva reserva
             cursor.execute("INSERT INTO reservas (id_cliente, id_habitacion, fecha_check_in, fecha_check_out) VALUES (?, ?, ?, ?)",
                            (cliente_id, habitacion_id, check_in, check_out))
             
-            # Actualizar el estado de la habitación
             cursor.execute("UPDATE habitaciones SET estado = 'Ocupada', fecha_disponible = ? WHERE id = ?", (check_out, habitacion_id))
             
             conn.commit()
@@ -478,11 +467,10 @@ def setup_nav_frame(self):
         finally:
             conn.close()
 
-        # Limpiar campos y refrescar vistas
         self.reserva_checkin_entry.delete(0, "end")
         self.reserva_checkout_entry.delete(0, "end")
         self.refrescar_tabla_reservas()
-        self.actualizar_selectores_reserva() # Para quitar la habitación de la lista de disponibles
+        self.actualizar_selectores_reserva()
 
     def cancelar_reserva(self):
         if not self.selected_reservation_id: return
@@ -492,18 +480,16 @@ def setup_nav_frame(self):
 
         conn = self.db_connect(); cursor = conn.cursor()
         try:
-            # Obtener el ID de la habitación antes de borrar la reserva
             cursor.execute("SELECT id_habitacion FROM reservas WHERE id = ?", (self.selected_reservation_id,))
             result = cursor.fetchone()
             if not result:
                 messagebox.showerror("Error", "No se encontró la reserva.")
+                conn.close()
                 return
             habitacion_id = result[0]
             
-            # Eliminar la reserva
             cursor.execute("DELETE FROM reservas WHERE id = ?", (self.selected_reservation_id,))
             
-            # Actualizar la habitación a 'Disponible'
             cursor.execute("UPDATE habitaciones SET estado = 'Disponible', fecha_disponible = NULL WHERE id = ?", (habitacion_id,))
             
             conn.commit()
@@ -518,14 +504,149 @@ def setup_nav_frame(self):
         self.btn_cancelar_reserva.configure(state="disabled")
         self.label_cancelar.configure(text="Seleccione una reserva para cancelarla")
         self.refrescar_tabla_reservas()
-        self.actualizar_selectores_reserva() # La habitación volverá a estar disponible
+        self.actualizar_selectores_reserva()
 
-    # --- VISTA Y LÓGICA DE GESTIÓN DE EDIFICIOS ---
+    # --- CRUD Servicios Adicionales ---
+    def mostrar_vista_servicios(self):
+        self.current_view = "servicios"
+        self.top_frame.grid_remove()
+        self.limpiar_frame_principal()
+        container = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        container.pack(fill="both", expand=True)
+        self.setup_servicios_view(container)
+
+    def setup_servicios_view(self, parent_container):
+        parent_container.grid_columnconfigure(0, weight=1); parent_container.grid_rowconfigure(1, weight=3); parent_container.grid_rowconfigure(2, weight=1)
+        ctk.CTkLabel(parent_container, text="Gestión de Servicios Adicionales", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=10, pady=(10,15), sticky="w")
+        
+        tabla_frame = ctk.CTkFrame(parent_container); tabla_frame.grid(row=1, column=0, sticky="nsew", padx=10)
+        tabla_frame.grid_columnconfigure(0, weight=1); tabla_frame.grid_rowconfigure(0, weight=1)
+        self.tree_servicios = ttk.Treeview(tabla_frame, columns=("ID", "Nombre", "Precio"), show="headings")
+        self.tree_servicios.heading("ID", text="ID"); self.tree_servicios.column("ID", width=50, anchor="center")
+        self.tree_servicios.heading("Nombre", text="Nombre del Servicio"); self.tree_servicios.column("Nombre", width=400)
+        self.tree_servicios.heading("Precio", text="Precio ($)"); self.tree_servicios.column("Precio", width=150, anchor="e")
+        self.tree_servicios.pack(fill="both", expand=True)
+        self.refrescar_tabla_servicios()
+        self.tree_servicios.bind("<<TreeviewSelect>>", self.on_servicio_select)
+        
+        acciones_frame = ctk.CTkFrame(parent_container, fg_color="transparent"); acciones_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=10)
+        acciones_frame.grid_columnconfigure((0, 1), weight=1)
+        
+        agregar_frame = ctk.CTkFrame(acciones_frame, border_width=1); agregar_frame.grid(row=0, column=0, padx=(0, 5), pady=5, sticky="nsew")
+        agregar_frame.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(agregar_frame, text="Agregar Nuevo Servicio", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=(5,10))
+        self.add_nombre_servicio = ctk.CTkEntry(agregar_frame, placeholder_text="Nombre del Servicio"); self.add_nombre_servicio.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
+        self.add_precio_servicio = ctk.CTkEntry(agregar_frame, placeholder_text="Precio"); self.add_precio_servicio.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
+        ctk.CTkButton(agregar_frame, text="Agregar Servicio", command=self.agregar_servicio).grid(row=3, column=0, padx=10, pady=10, sticky="ew")
+
+        self.edit_frame_servicio = ctk.CTkFrame(acciones_frame, border_width=1); self.edit_frame_servicio.grid(row=0, column=1, padx=(5, 0), pady=5, sticky="nsew")
+        self.edit_frame_servicio.grid_columnconfigure((0,1,2), weight=1)
+        ctk.CTkLabel(self.edit_frame_servicio, text="Editar Servicio Seleccionado", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, columnspan=3, padx=10, pady=(5,10))
+        self.edit_nombre_servicio = ctk.CTkEntry(self.edit_frame_servicio, placeholder_text="Seleccione un servicio"); self.edit_nombre_servicio.grid(row=1, column=0, columnspan=3, padx=10, pady=5, sticky="ew")
+        self.edit_precio_servicio = ctk.CTkEntry(self.edit_frame_servicio); self.edit_precio_servicio.grid(row=2, column=0, columnspan=3, padx=10, pady=5, sticky="ew")
+        ctk.CTkButton(self.edit_frame_servicio, text="Actualizar", command=self.actualizar_servicio).grid(row=3, column=0, padx=5, pady=10, sticky="ew")
+        ctk.CTkButton(self.edit_frame_servicio, text="Eliminar", fg_color="red", hover_color="#C00000", command=self.eliminar_servicio).grid(row=3, column=1, padx=5, pady=10, sticky="ew")
+        ctk.CTkButton(self.edit_frame_servicio, text="Limpiar", fg_color="gray", command=self.limpiar_seleccion_servicio).grid(row=3, column=2, padx=5, pady=10, sticky="ew")
+        self.toggle_edit_panel_servicio(False)
+
+    def refrescar_tabla_servicios(self):
+        for item in self.tree_servicios.get_children(): self.tree_servicios.delete(item)
+        conn = self.db_connect(); cursor = conn.cursor()
+        for row in cursor.execute("SELECT id, nombre_servicio, precio FROM servicios_adicionales ORDER BY nombre_servicio"):
+            formatted_price = f"${row[2]:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            self.tree_servicios.insert("", "end", values=(row[0], row[1], formatted_price))
+        conn.close()
+
+    def on_servicio_select(self, event):
+        selected_item = self.tree_servicios.focus()
+        if not selected_item: return
+        item_values = self.tree_servicios.item(selected_item, "values")
+        self.selected_service_id = item_values[0]
+        
+        conn = self.db_connect(); cursor = conn.cursor()
+        cursor.execute("SELECT precio FROM servicios_adicionales WHERE id = ?", (self.selected_service_id,))
+        precio_sin_formato = cursor.fetchone()[0]
+        conn.close()
+        
+        self.edit_nombre_servicio.delete(0, "end"); self.edit_nombre_servicio.insert(0, item_values[1])
+        self.edit_precio_servicio.delete(0, "end"); self.edit_precio_servicio.insert(0, float(precio_sin_formato))
+        self.toggle_edit_panel_servicio(True)
+
+    def agregar_servicio(self):
+        nombre = self.add_nombre_servicio.get()
+        precio_str = self.add_precio_servicio.get()
+
+        if not nombre or not precio_str:
+            messagebox.showwarning("Campos Vacíos", "El nombre y el precio son obligatorios.")
+            return
+        
+        try:
+            precio = float(precio_str)
+        except ValueError:
+            messagebox.showerror("Error de Formato", "El precio debe ser un número válido.")
+            return
+
+        conn = self.db_connect(); cursor = conn.cursor()
+        cursor.execute("INSERT INTO servicios_adicionales (nombre_servicio, precio) VALUES (?, ?)", (nombre, precio))
+        conn.commit(); conn.close()
+        
+        self.add_nombre_servicio.delete(0, "end")
+        self.add_precio_servicio.delete(0, "end")
+        
+        self.refrescar_tabla_servicios()
+        messagebox.showinfo("Éxito", "Servicio agregado correctamente.")
+
+    def actualizar_servicio(self):
+        if not self.selected_service_id: return
+        nombre = self.edit_nombre_servicio.get()
+        precio_str = self.edit_precio_servicio.get()
+
+        if not nombre or not precio_str:
+            messagebox.showwarning("Campos Vacíos", "El nombre y el precio son obligatorios.")
+            return
+            
+        try:
+            precio = float(precio_str)
+        except ValueError:
+            messagebox.showerror("Error de Formato", "El precio debe ser un número válido.")
+            return
+            
+        conn = self.db_connect(); cursor = conn.cursor()
+        cursor.execute("UPDATE servicios_adicionales SET nombre_servicio = ?, precio = ? WHERE id = ?", (nombre, precio, self.selected_service_id))
+        conn.commit(); conn.close()
+        self.refrescar_tabla_servicios()
+        self.limpiar_seleccion_servicio()
+        messagebox.showinfo("Éxito", "Servicio actualizado correctamente.")
+
+    def eliminar_servicio(self):
+        if not self.selected_service_id: return
+        
+        if messagebox.askyesno("Confirmar Eliminación", f"¿Seguro que desea eliminar el servicio '{self.edit_nombre_servicio.get()}'?"):
+            conn = self.db_connect(); cursor = conn.cursor()
+            cursor.execute("DELETE FROM servicios_adicionales WHERE id = ?", (self.selected_service_id,))
+            conn.commit(); conn.close()
+            self.refrescar_tabla_servicios()
+            self.limpiar_seleccion_servicio()
+            messagebox.showinfo("Éxito", "Servicio eliminado.")
+
+    def limpiar_seleccion_servicio(self):
+        if self.tree_servicios.focus(): self.tree_servicios.selection_remove(self.tree_servicios.focus())
+        self.selected_service_id = None
+        self.edit_nombre_servicio.delete(0, "end"); self.edit_precio_servicio.delete(0, "end")
+        self.edit_nombre_servicio.configure(placeholder_text="Seleccione un servicio")
+        self.toggle_edit_panel_servicio(False)
+
+    def toggle_edit_panel_servicio(self, enabled):
+        state = "normal" if enabled else "disabled"
+        for child in self.edit_frame_servicio.winfo_children():
+            if isinstance(child, (ctk.CTkEntry, ctk.CTkButton)):
+                child.configure(state=state)
+
+    # --- CRUD Edificios ---
     def setup_edificios_view(self, parent_container):
         parent_container.grid_columnconfigure(0, weight=1); parent_container.grid_rowconfigure(1, weight=3); parent_container.grid_rowconfigure(2, weight=1)
         ctk.CTkLabel(parent_container, text="Gestión de Edificios", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=10, pady=(10,15), sticky="w")
         
-        # Tabla
         tabla_frame = ctk.CTkFrame(parent_container); tabla_frame.grid(row=1, column=0, sticky="nsew", padx=10)
         tabla_frame.grid_columnconfigure(0, weight=1); tabla_frame.grid_rowconfigure(0, weight=1)
         self.tree_edificios = ttk.Treeview(tabla_frame, columns=("ID", "Nombre", "Direccion"), show="headings")
@@ -536,11 +657,9 @@ def setup_nav_frame(self):
         self.refrescar_tabla_edificios()
         self.tree_edificios.bind("<<TreeviewSelect>>", self.on_edificio_select)
         
-        # Paneles de Acciones
         acciones_frame = ctk.CTkFrame(parent_container, fg_color="transparent"); acciones_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=10)
         acciones_frame.grid_columnconfigure((0, 1), weight=1)
         
-        # Panel Agregar
         agregar_frame = ctk.CTkFrame(acciones_frame, border_width=1); agregar_frame.grid(row=0, column=0, padx=(0, 5), pady=5, sticky="nsew")
         agregar_frame.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(agregar_frame, text="Agregar Nuevo Edificio", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=(5,10))
@@ -548,7 +667,6 @@ def setup_nav_frame(self):
         self.add_direccion_edificio = ctk.CTkEntry(agregar_frame, placeholder_text="Dirección"); self.add_direccion_edificio.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
         ctk.CTkButton(agregar_frame, text="Agregar Edificio", command=self.agregar_edificio).grid(row=3, column=0, padx=10, pady=10, sticky="ew")
 
-        # Panel Editar/Eliminar
         self.edit_frame_edificio = ctk.CTkFrame(acciones_frame, border_width=1); self.edit_frame_edificio.grid(row=0, column=1, padx=(5, 0), pady=5, sticky="nsew")
         self.edit_frame_edificio.grid_columnconfigure((0,1,2), weight=1)
         ctk.CTkLabel(self.edit_frame_edificio, text="Editar Edificio Seleccionado", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, columnspan=3, padx=10, pady=(5,10))
@@ -562,7 +680,7 @@ def setup_nav_frame(self):
     def refrescar_tabla_edificios(self):
         for item in self.tree_edificios.get_children(): self.tree_edificios.delete(item)
         conn = self.db_connect(); cursor = conn.cursor()
-        for row in cursor.execute("SELECT id, nombre, direccion FROM edificios"): self.tree_edificios.insert("", "end", values=row)
+        for row in cursor.execute("SELECT id, nombre, direccion FROM edificios ORDER BY nombre"): self.tree_edificios.insert("", "end", values=row)
         conn.close()
 
     def on_edificio_select(self, event):
@@ -625,7 +743,7 @@ def setup_nav_frame(self):
         for child in self.edit_frame_edificio.winfo_children():
             if isinstance(child, (ctk.CTkEntry, ctk.CTkButton)): child.configure(state=state)
 
-    # --- VISTA Y LÓGICA DE PERSONAL ---
+    # --- CRUD Personal ---
     def setup_personal_view(self, parent_container):
         parent_container.grid_columnconfigure(0, weight=1); parent_container.grid_rowconfigure(1, weight=3); parent_container.grid_rowconfigure(2, weight=1)
         ctk.CTkLabel(parent_container, text="Gestión de Personal", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=10, pady=(10,15), sticky="w")
@@ -714,7 +832,7 @@ def setup_nav_frame(self):
         for child in self.edit_frame_staff.winfo_children():
             if isinstance(child, (ctk.CTkEntry, ctk.CTkButton)): child.configure(state=state)
 
-    # --- VISTA Y LÓGICA DE HABITACIONES ---
+    # --- CRUD Habitaciones ---
     def setup_habitaciones_view(self, parent_container):
         parent_container.grid_columnconfigure(0, weight=1); parent_container.grid_rowconfigure(1, weight=3); parent_container.grid_rowconfigure(2, weight=1)
         ctk.CTkLabel(parent_container, text="Gestión de Habitaciones", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=10, pady=(10,15), sticky="w")
