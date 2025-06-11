@@ -67,8 +67,10 @@ class HotelApp(ctk.CTk):
         self.selected_room_id = None
         self.selected_building_id_mgmt = None
         self.selected_reservation_id = None # ID de la reserva seleccionada
+        
         self.client_map = {} # Mapa de clientes para los menús
         self.available_rooms_map = {} # Mapa de habitaciones disponibles
+        
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
@@ -90,25 +92,34 @@ class HotelApp(ctk.CTk):
         self.building_selector.pack(side="left", padx=10, pady=10)
 
     def setup_nav_frame(self):
-        nav_frame = ctk.CTkFrame(self, width=180, corner_radius=0)
-        nav_frame.grid(row=1, column=0, sticky="nsew")
-        nav_frame.grid_rowconfigure(7, weight=1) # Aumentar el peso de la fila
-        ctk.CTkLabel(nav_frame, text="HotelPy", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=20, pady=20)
-        self.btn_personal = ctk.CTkButton(nav_frame, text="Personal", command=self.mostrar_vista_personal)
-        self.btn_personal.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
-        self.btn_habitaciones = ctk.CTkButton(nav_frame, text="Habitaciones", command=self.mostrar_vista_habitaciones)
-        self.btn_habitaciones.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
-        
-        # --- NUEVO BOTÓN DE CLIENTES ---
-        self.btn_clientes = ctk.CTkButton(nav_frame, text="Clientes", command=self.mostrar_vista_clientes)
-        self.btn_clientes.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
-        # --- BOTON RESERVAS ---
-        self.btn_reservas = ctk.CTkButton(nav_frame, text="Reservas", command=self.mostrar_vista_reservas)
-        self.btn_reservas.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
+    nav_frame = ctk.CTkFrame(self, width=180, corner_radius=0)
+    nav_frame.grid(row=1, column=0, sticky="nsew")
+    # El peso debe estar en la fila DESPUÉS del último widget, ajustado a 8.
+    nav_frame.grid_rowconfigure(8, weight=1) 
+    
+    ctk.CTkLabel(nav_frame, text="HotelPy", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=20, pady=20)
+    
+    self.btn_personal = ctk.CTkButton(nav_frame, text="Personal", command=self.mostrar_vista_personal)
+    self.btn_personal.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
+    
+    self.btn_habitaciones = ctk.CTkButton(nav_frame, text="Habitaciones", command=self.mostrar_vista_habitaciones)
+    self.btn_habitaciones.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
+    
+    self.btn_clientes = ctk.CTkButton(nav_frame, text="Clientes", command=self.mostrar_vista_clientes)
+    self.btn_clientes.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
 
-        ctk.CTkLabel(nav_frame, text="Administración", font=ctk.CTkFont(size=12, weight="bold", slant="italic")).grid(row=4, column=0, padx=20, pady=(20, 0), sticky="w")
-        self.btn_edificios = ctk.CTkButton(nav_frame, text="Edificios", fg_color="#565b5e", hover_color="#6c7174", command=self.mostrar_vista_edificios)
-        self.btn_edificios.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
+    self.btn_reservas = ctk.CTkButton(nav_frame, text="Reservas", command=self.mostrar_vista_reservas)
+    self.btn_reservas.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
+
+    self.btn_servicios = ctk.CTkButton(nav_frame, text="Servicios", command=self.mostrar_vista_servicios)
+    self.btn_servicios.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
+    
+
+    ctk.CTkLabel(nav_frame, text="Administración", font=ctk.CTkFont(size=12, weight="bold", slant="italic")).grid(row=6, column=0, padx=20, pady=(20, 0), sticky="w")
+    
+    # ---Boton Edificios ---
+    self.btn_edificios = ctk.CTkButton(nav_frame, text="Edificios", fg_color="#565b5e", hover_color="#6c7174", command=self.mostrar_vista_edificios)
+    self.btn_edificios.grid(row=7, column=0, padx=20, pady=10, sticky="ew")
 
     def db_connect(self): return sqlite3.connect('hotel.db')
 
