@@ -73,7 +73,7 @@ class HotelApp(ctk.CTk):
         
         self.client_map = {} # Mapa de clientes para los menús
         self.available_rooms_map = {} # Mapa de habitaciones disponibles
-        
+        self.cl_tz = pytz.timezone('America/Santiago')
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
@@ -260,10 +260,10 @@ class HotelApp(ctk.CTk):
         self.toggle_edit_panel_cliente(True)
 
     def agregar_cliente(self):
-        nombre = self.add_nombre_cliente.get()
-        rut = self.add_rut_cliente.get()
-        email = self.add_email_cliente.get()
-        telefono = self.add_telefono_cliente.get()
+        nombre = self.add_nombre_cliente.get().strip()
+        rut = self.add_rut_cliente.get().strip()
+        email = self.add_email_cliente.get().strip()
+        telefono = self.add_telefono_cliente.get().strip()
 
         if not nombre or not rut:
             messagebox.showwarning("Campos Vacíos", "El nombre y el RUT son obligatorios.")
@@ -286,10 +286,10 @@ class HotelApp(ctk.CTk):
 
     def actualizar_cliente(self):
         if not self.selected_client_id: return
-        nombre = self.edit_nombre_cliente.get()
-        rut = self.edit_rut_cliente.get()
-        email = self.edit_email_cliente.get()
-        telefono = self.edit_telefono_cliente.get()
+        nombre = self.edit_nombre_cliente.get().strip()
+        rut = self.edit_rut_cliente.get().strip()
+        email = self.edit_email_cliente.get().strip()
+        telefono = self.edit_telefono_cliente.get().strip()
 
         if not nombre or not rut:
             messagebox.showwarning("Campos Vacíos", "El nombre y el RUT son obligatorios.")
@@ -308,9 +308,9 @@ class HotelApp(ctk.CTk):
     def eliminar_cliente(self):
         if not self.selected_client_id: return
         
-        conn = self.db_connect(); cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM reservas WHERE id_cliente = ?", (self.selected_client_id,))
-        reservas_count = cursor.fetchone()[0]
+            conn = self.db_connect(); cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM reservas WHERE id_cliente = ?", (self.selected_client_id,))
+            reservas_count = cursor.fetchone()[0]
         
         if reservas_count > 0:
             messagebox.showerror("Error al Eliminar", f"No se puede eliminar el cliente.\nTiene {reservas_count} reserva(s) asociada(s).\nPor favor, gestione las reservas primero.")
@@ -349,7 +349,7 @@ class HotelApp(ctk.CTk):
         parent_container.grid_columnconfigure(0, weight=2); parent_container.grid_columnconfigure(1, weight=1); 
         parent_container.grid_rowconfigure(1, weight=1)
         ctk.CTkLabel(parent_container, text=f"Gestión de Reservas - {self.building_selector.get()}", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, columnspan=2, padx=10, pady=(10,15), sticky="w")
-        
+
         tabla_frame = ctk.CTkFrame(parent_container); tabla_frame.grid(row=1, column=0, sticky="nsew", padx=(10, 5))
         tabla_frame.grid_columnconfigure(0, weight=1); tabla_frame.grid_rowconfigure(0, weight=1)
         self.tree_reservas = ttk.Treeview(tabla_frame, columns=("ID", "Cliente", "Habitación", "Check-in", "Check-out"), show="headings")
@@ -375,11 +375,13 @@ class HotelApp(ctk.CTk):
         ctk.CTkLabel(crear_reserva_frame, text="Habitación Disponible:").grid(row=3, column=0, padx=10, pady=(5,0), sticky="w")
         self.reserva_habitacion_selector = ctk.CTkOptionMenu(crear_reserva_frame, values=["Cargando..."]); self.reserva_habitacion_selector.grid(row=4, column=0, padx=10, pady=5, sticky="ew")
 
-        ctk.CTkLabel(crear_reserva_frame, text="Fecha Check-in (AAAA-MM-DD):").grid(row=5, column=0, padx=10, pady=(5,0), sticky="w")
-        self.reserva_checkin_entry = ctk.CTkEntry(crear_reserva_frame); self.reserva_checkin_entry.grid(row=6, column=0, padx=10, pady=5, sticky="ew")
-
-        ctk.CTkLabel(crear_reserva_frame, text="Fecha Check-out (AAAA-MM-DD):").grid(row=7, column=0, padx=10, pady=(5,0), sticky="w")
-        self.reserva_checkout_entry = ctk.CTkEntry(crear_reserva_frame); self.reserva_checkout_entry.grid(row=8, column=0, padx=10, pady=5, sticky="ew")
+        ctk.CTkLabel(crear_reserva_frame, text="Fecha Check-in (DD-MM-AAAA):").grid(row=5, column=0, padx=10, pady=(5,0), sticky="w")
+        self.reserva_checkin_entry = ctk.CTkEntry(crear_reserva_frame, placeholder_text="DD-MM-AAAA"); self.reserva_checkin_entry.grid(row=6, column=0, padx=10, pady=5, sticky="ew")
+         # Inserta la fecha actual de Chile en el campo de Check-in
+        now_cl = datetime.now(self.cl_tz)
+        self.reserva_checkin_entry.insert(0, now_cl.strftime('%d-%m-%Y'))
+        ctk.CTkLabel(crear_reserva_frame, text="Fecha Check-out (DD-MM-AAAA):").grid(row=7, column=0, padx=10, pady=(5,0), sticky="w")
+        self.reserva_checkout_entry = ctk.CTkEntry(crear_reserva_frame, placeholder_text="DD-MM-AAAA"); self.reserva_checkout_entry.grid(row=8, column=0, padx=10, pady=5, sticky="ew")
 
         ctk.CTkButton(crear_reserva_frame, text="Confirmar Reserva", command=self.crear_reserva).grid(row=9, column=0, padx=10, pady=10, sticky="ew")
 
@@ -448,7 +450,20 @@ class HotelApp(ctk.CTk):
         if not check_in or not check_out:
             messagebox.showwarning("Campos incompletos", "Las fechas de Check-in y Check-out son obligatorias.")
             return
+        try:
+        check_in_dt = datetime.strptime(check_in_str, '%d-%m-%Y')
+        check_out_dt = datetime.strptime(check_out_str, '%d-%m-%Y')
+        
+        if check_out_dt <= check_in_dt:
+            messagebox.showerror("Error de Fechas", "La fecha de Check-out debe ser posterior a la de Check-in.")
+            return
 
+        # Convertir a formato AAAA-MM-DD para la base de datos
+        check_in_db = check_in_dt.strftime('%Y-%m-%d')
+        check_out_db = check_out_dt.strftime('%Y-%m-%d')
+        except ValueError:
+            messagebox.showerror("Error de Formato", "Use el formato DD-MM-AAAA para las fechas.")
+        return
         cliente_id = self.client_map.get(cliente_nombre)
         habitacion_id = self.available_rooms_map.get(habitacion_nombre)
         
@@ -573,8 +588,8 @@ class HotelApp(ctk.CTk):
         self.toggle_edit_panel_servicio(True)
 
     def agregar_servicio(self):
-        nombre = self.add_nombre_servicio.get()
-        precio_str = self.add_precio_servicio.get()
+        nombre = self.add_nombre_servicio.get().strip()
+        precio_str = self.add_precio_servicio.get().strip()
 
         if not nombre or not precio_str:
             messagebox.showwarning("Campos Vacíos", "El nombre y el precio son obligatorios.")
@@ -598,8 +613,8 @@ class HotelApp(ctk.CTk):
 
     def actualizar_servicio(self):
         if not self.selected_service_id: return
-        nombre = self.edit_nombre_servicio.get()
-        precio_str = self.edit_precio_servicio.get()
+        nombre = self.edit_nombre_servicio.get().strip()
+        precio_str = self.edit_precio_servicio.get().strip()
 
         if not nombre or not precio_str:
             messagebox.showwarning("Campos Vacíos", "El nombre y el precio son obligatorios.")
@@ -692,7 +707,7 @@ class HotelApp(ctk.CTk):
         self.toggle_edit_panel_edificio(True)
 
     def agregar_edificio(self):
-        nombre = self.add_nombre_edificio.get(); direccion = self.add_direccion_edificio.get()
+        nombre = self.add_nombre_edificio.get(); direccion = self.add_direccion_edificio.get().strip()
         if nombre and direccion:
             try:
                 conn = self.db_connect(); cursor = conn.cursor()
@@ -705,7 +720,7 @@ class HotelApp(ctk.CTk):
 
     def actualizar_edificio(self):
         if not self.selected_building_id_mgmt: return
-        nombre = self.edit_nombre_edificio.get(); direccion = self.edit_direccion_edificio.get()
+        nombre = self.edit_nombre_edificio.get(); direccion = self.edit_direccion_edificio.get().strip()
         if nombre and direccion:
             conn = self.db_connect(); cursor = conn.cursor()
             cursor.execute("UPDATE edificios SET nombre = ?, direccion = ? WHERE id = ?", (nombre, direccion, self.selected_building_id_mgmt))
@@ -795,7 +810,7 @@ class HotelApp(ctk.CTk):
         self.toggle_edit_panel_staff(True)
 
     def agregar_personal(self):
-        nombre = self.add_nombre_staff.get(); puesto = self.add_puesto_staff.get(); telefono = self.add_telefono_staff.get()
+        nombre = self.add_nombre_staff.get(); puesto = self.add_puesto_staff.get().strip(); telefono = self.add_telefono_staff.get().strip()
         if nombre and puesto:
             conn = self.db_connect(); cursor = conn.cursor()
             cursor.execute("INSERT INTO personal (id_edificio, nombre_completo, puesto, telefono) VALUES (?, ?, ?, ?)", (self.current_building_id, nombre, puesto, telefono))
@@ -807,7 +822,7 @@ class HotelApp(ctk.CTk):
     def actualizar_personal(self):
         if not self.selected_staff_id: return
         conn = self.db_connect(); cursor = conn.cursor()
-        cursor.execute("UPDATE personal SET nombre_completo = ?, puesto = ?, telefono = ? WHERE id = ?", (self.edit_nombre_staff.get(), self.edit_puesto_staff.get(), self.edit_telefono_staff.get(), self.selected_staff_id))
+        cursor.execute("UPDATE personal SET nombre_completo = ?, puesto = ?, telefono = ? WHERE id = ?", (self.edit_nombre_staff.get(), self.edit_puesto_staff.get().strip(), self.edit_telefono_staff.get(), self.selected_staff_id))
         conn.commit(); conn.close()
         self.refrescar_tabla_personal(); self.limpiar_seleccion_personal()
 
@@ -886,7 +901,7 @@ class HotelApp(ctk.CTk):
         self.toggle_edit_panel_room(True)
 
     def agregar_habitacion(self):
-        numero = self.add_numero_hab.get(); tipo = self.add_tipo_hab.get()
+        numero = self.add_numero_hab.get().strip(); tipo = self.add_tipo_hab.get().strip()
         if numero and tipo:
             conn = self.db_connect(); cursor = conn.cursor()
             cursor.execute("INSERT INTO habitaciones (id_edificio, numero_habitacion, tipo) VALUES (?, ?, ?)", (self.current_building_id, numero, tipo))
