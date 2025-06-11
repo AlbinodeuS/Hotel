@@ -406,6 +406,14 @@ class HotelApp(ctk.CTk):
             ORDER BY r.fecha_check_in DESC
         """
         for row in cursor.execute(query, (self.current_building_id,)):
+            try
+            # Convierte de AAAA-MM-DD a DD-MM-AAAA
+            check_in_dt = datetime.strptime(row[3], '%Y-%m-%d').strftime('%d-%m-%Y')
+            check_out_dt = datetime.strptime(row[4], '%Y-%m-%d').strftime('%d-%m-%Y')
+            except (ValueError, TypeError):
+            # Si el formato es inesperado, muestra el dato original
+            check_in_dt, check_out_dt = row[3], row[4] 
+
             self.tree_reservas.insert("", "end", values=row)
         conn.close()
 
@@ -881,14 +889,28 @@ class HotelApp(ctk.CTk):
         self.toggle_edit_panel_room(False)
 
     def refrescar_tabla_habitaciones(self):
-        for item in self.tree_habitaciones.get_children(): self.tree_habitaciones.delete(item)
-        if not self.current_building_id: return
-        conn = self.db_connect(); cursor = conn.cursor()
-        query = """SELECT h.id, h.numero_habitacion, h.tipo, h.estado, h.fecha_disponible, p.nombre_completo FROM habitaciones h LEFT JOIN personal p ON h.id_personal_asignado = p.id WHERE h.id_edificio = ?"""
-        for row in cursor.execute(query, (self.current_building_id,)):
-            personal = row[5] if row[5] else "Sin asignar"; fecha = row[4] if row[4] else ""
-            self.tree_habitaciones.insert("", "end", values=(row[0], row[1], row[2], row[3], fecha, personal))
-        conn.close()
+    for item in self.tree_habitaciones.get_children(): self.tree_habitaciones.delete(item)
+    if not self.current_building_id: return
+    conn = self.db_connect(); cursor = conn.cursor()
+    query = """SELECT h.id, h.numero_habitacion, h.tipo, h.estado, h.fecha_disponible, p.nombre_completo FROM habitaciones h LEFT JOIN personal p ON h.id_personal_asignado = p.id WHERE h.id_edificio = ?"""
+    for row in cursor.execute(query, (self.current_building_id,)):
+        personal = row[5] if row[5] else "Sin asignar"
+        fecha_db = row[4]
+        display_fecha = ""
+        
+        # --- CÓDIGO CORREGIDO PARA FORMATEAR LA FECHA ---
+        if fecha_db:
+            try: # Intenta convertir formato con fecha y hora
+                display_fecha = datetime.strptime(fecha_db, '%Y-%m-%d %H:%M:%S').strftime('%d-%m-%Y %H:%M')
+            except ValueError:
+                try: # Si falla, intenta convertir solo la fecha
+                    display_fecha = datetime.strptime(fecha_db, '%Y-%m-%d').strftime('%d-%m-%Y')
+                except (ValueError, TypeError):
+                    display_fecha = fecha_db # Si todo falla, muestra el dato original
+        # --- FIN DE LA CORRECCIÓN ---
+        
+        self.tree_habitaciones.insert("", "end", values=(row[0], row[1], row[2], row[3], display_fecha, personal))
+    conn.close()
 
     def on_room_select(self, event):
         selected_item = self.tree_habitaciones.focus()
@@ -913,9 +935,18 @@ class HotelApp(ctk.CTk):
         if not self.selected_room_id: return
         nuevo_estado = self.edit_estado_hab.get(); fecha_disp = None
         if nuevo_estado in ["Ocupada", "Mantenimiento"]:
-            dialog = ctk.CTkInputDialog(text=f"¿Hasta qué fecha/hora estará '{nuevo_estado}'?\nFormato Sugerido: AAAA-MM-DD HH:MM", title="Confirmar Fecha")
-            fecha_disp = dialog.get_input()
-            if not fecha_disp: return
+            dialog = ctk.CTkInputDialog(text=f"¿Hasta qué fecha/hora estará '{nuevo_estado}'?\nFormato: DD-MM-AAAA HH:MM", title="Confirmar Fecha")
+        fecha_input = dialog.get_input()
+        if not fecha_input: return
+
+        try:
+            # Valida el formato de entrada
+            fecha_dt = datetime.strptime(fecha_input.strip(), '%d-%m-%Y %H:%M')
+            # Convierte a formato de DB
+            fecha_disp = fecha_dt.strftime('%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            messagebox.showerror("Error de Formato", "El formato de fecha y hora no es válido.\nUse DD-MM-AAAA HH:MM")
+            return
         personal_nombre = self.edit_personal_hab.get()
         personal_id = self.personal_map.get(personal_nombre) if personal_nombre != "Ninguno" else None
         params = (nuevo_estado, personal_id, fecha_disp if nuevo_estado != "Disponible" else None, self.selected_room_id)
