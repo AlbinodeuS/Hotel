@@ -65,6 +65,7 @@ class HotelApp(ctk.CTk):
         self.selected_staff_id = None
         self.selected_room_id = None
         self.selected_building_id_mgmt = None
+        self.selected_client_id = None # ID del cliente seleccionado
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -89,15 +90,20 @@ class HotelApp(ctk.CTk):
     def setup_nav_frame(self):
         nav_frame = ctk.CTkFrame(self, width=180, corner_radius=0)
         nav_frame.grid(row=1, column=0, sticky="nsew")
-        nav_frame.grid_rowconfigure(5, weight=1)
+        nav_frame.grid_rowconfigure(6, weight=1) # Aumentar el peso de la fila
         ctk.CTkLabel(nav_frame, text="HotelPy", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=20, pady=20)
         self.btn_personal = ctk.CTkButton(nav_frame, text="Personal", command=self.mostrar_vista_personal)
         self.btn_personal.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
         self.btn_habitaciones = ctk.CTkButton(nav_frame, text="Habitaciones", command=self.mostrar_vista_habitaciones)
         self.btn_habitaciones.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
-        ctk.CTkLabel(nav_frame, text="Administración", font=ctk.CTkFont(size=12, weight="bold", slant="italic")).grid(row=3, column=0, padx=20, pady=(20, 0), sticky="w")
+        
+        # --- NUEVO BOTÓN DE CLIENTES ---
+        self.btn_clientes = ctk.CTkButton(nav_frame, text="Clientes", command=self.mostrar_vista_clientes)
+        self.btn_clientes.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
+
+        ctk.CTkLabel(nav_frame, text="Administración", font=ctk.CTkFont(size=12, weight="bold", slant="italic")).grid(row=4, column=0, padx=20, pady=(20, 0), sticky="w")
         self.btn_edificios = ctk.CTkButton(nav_frame, text="Edificios", fg_color="#565b5e", hover_color="#6c7174", command=self.mostrar_vista_edificios)
-        self.btn_edificios.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
+        self.btn_edificios.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
 
     def db_connect(self): return sqlite3.connect('hotel.db')
 
@@ -166,7 +172,160 @@ class HotelApp(ctk.CTk):
         self.limpiar_frame_principal()
         container = ctk.CTkFrame(self.main_frame, fg_color="transparent"); container.pack(fill="both", expand=True)
         self.setup_edificios_view(container)
+        
+    # --- NUEVA VISTA DE CLIENTES ---
+    def mostrar_vista_clientes(self):
+        self.current_view = "clientes"
+        self.top_frame.grid_remove()  # Oculta el selector de edificios
+        self.limpiar_frame_principal()
+        container = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        container.pack(fill="both", expand=True)
+        self.setup_clientes_view(container)
 
+    # --- VISTA Y LÓGICA DE GESTIÓN DE CLIENTES ---
+    def setup_clientes_view(self, parent_container):
+        parent_container.grid_columnconfigure(0, weight=1); parent_container.grid_rowconfigure(1, weight=3); parent_container.grid_rowconfigure(2, weight=1)
+        ctk.CTkLabel(parent_container, text="Gestión de Clientes", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=10, pady=(10,15), sticky="w")
+        
+        # Tabla de Clientes
+        tabla_frame = ctk.CTkFrame(parent_container); tabla_frame.grid(row=1, column=0, sticky="nsew", padx=10)
+        tabla_frame.grid_columnconfigure(0, weight=1); tabla_frame.grid_rowconfigure(0, weight=1)
+        self.tree_clientes = ttk.Treeview(tabla_frame, columns=("ID", "Nombre", "RUT", "Email", "Teléfono"), show="headings")
+        self.tree_clientes.heading("ID", text="ID"); self.tree_clientes.column("ID", width=50, anchor="center")
+        self.tree_clientes.heading("Nombre", text="Nombre Completo"); self.tree_clientes.column("Nombre", width=250)
+        self.tree_clientes.heading("RUT", text="RUT/Documento"); self.tree_clientes.column("RUT", width=150)
+        self.tree_clientes.heading("Email", text="Email"); self.tree_clientes.column("Email", width=200)
+        self.tree_clientes.heading("Teléfono", text="Teléfono"); self.tree_clientes.column("Teléfono", width=120)
+        self.tree_clientes.pack(fill="both", expand=True)
+        self.refrescar_tabla_clientes()
+        self.tree_clientes.bind("<<TreeviewSelect>>", self.on_cliente_select)
+        
+        # Paneles de Acciones
+        acciones_frame = ctk.CTkFrame(parent_container, fg_color="transparent"); acciones_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=10)
+        acciones_frame.grid_columnconfigure((0, 1), weight=1)
+        
+        # Panel Agregar Cliente
+        agregar_frame = ctk.CTkFrame(acciones_frame, border_width=1); agregar_frame.grid(row=0, column=0, padx=(0, 5), pady=5, sticky="nsew")
+        agregar_frame.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(agregar_frame, text="Agregar Nuevo Cliente", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=(5,10))
+        self.add_nombre_cliente = ctk.CTkEntry(agregar_frame, placeholder_text="Nombre Completo"); self.add_nombre_cliente.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
+        self.add_rut_cliente = ctk.CTkEntry(agregar_frame, placeholder_text="RUT/Documento"); self.add_rut_cliente.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
+        self.add_email_cliente = ctk.CTkEntry(agregar_frame, placeholder_text="Email"); self.add_email_cliente.grid(row=3, column=0, padx=10, pady=5, sticky="ew")
+        self.add_telefono_cliente = ctk.CTkEntry(agregar_frame, placeholder_text="Teléfono"); self.add_telefono_cliente.grid(row=4, column=0, padx=10, pady=5, sticky="ew")
+        ctk.CTkButton(agregar_frame, text="Agregar Cliente", command=self.agregar_cliente).grid(row=5, column=0, padx=10, pady=10, sticky="ew")
+
+        # Panel Editar/Eliminar Cliente
+        self.edit_frame_cliente = ctk.CTkFrame(acciones_frame, border_width=1); self.edit_frame_cliente.grid(row=0, column=1, padx=(5, 0), pady=5, sticky="nsew")
+        self.edit_frame_cliente.grid_columnconfigure((0,1,2), weight=1)
+        ctk.CTkLabel(self.edit_frame_cliente, text="Editar Cliente Seleccionado", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, columnspan=3, padx=10, pady=(5,10))
+        self.edit_nombre_cliente = ctk.CTkEntry(self.edit_frame_cliente); self.edit_nombre_cliente.grid(row=1, column=0, columnspan=3, padx=10, pady=5, sticky="ew")
+        self.edit_rut_cliente = ctk.CTkEntry(self.edit_frame_cliente); self.edit_rut_cliente.grid(row=2, column=0, columnspan=3, padx=10, pady=5, sticky="ew")
+        self.edit_email_cliente = ctk.CTkEntry(self.edit_frame_cliente); self.edit_email_cliente.grid(row=3, column=0, columnspan=3, padx=10, pady=5, sticky="ew")
+        self.edit_telefono_cliente = ctk.CTkEntry(self.edit_frame_cliente); self.edit_telefono_cliente.grid(row=4, column=0, columnspan=3, padx=10, pady=5, sticky="ew")
+        ctk.CTkButton(self.edit_frame_cliente, text="Actualizar", command=self.actualizar_cliente).grid(row=5, column=0, padx=5, pady=10, sticky="ew")
+        ctk.CTkButton(self.edit_frame_cliente, text="Eliminar", fg_color="red", hover_color="#C00000", command=self.eliminar_cliente).grid(row=5, column=1, padx=5, pady=10, sticky="ew")
+        ctk.CTkButton(self.edit_frame_cliente, text="Limpiar", fg_color="gray", command=self.limpiar_seleccion_cliente).grid(row=5, column=2, padx=5, pady=10, sticky="ew")
+        self.toggle_edit_panel_cliente(False)
+
+    def refrescar_tabla_clientes(self):
+        for item in self.tree_clientes.get_children(): self.tree_clientes.delete(item)
+        conn = self.db_connect(); cursor = conn.cursor()
+        for row in cursor.execute("SELECT id, nombre_completo, rut_documento, email, telefono FROM clientes ORDER BY nombre_completo"):
+            self.tree_clientes.insert("", "end", values=row)
+        conn.close()
+
+    def on_cliente_select(self, event):
+        selected_item = self.tree_clientes.focus()
+        if not selected_item: return
+        item_values = self.tree_clientes.item(selected_item, "values")
+        self.selected_client_id = item_values[0]
+        
+        self.edit_nombre_cliente.delete(0, "end"); self.edit_nombre_cliente.insert(0, item_values[1])
+        self.edit_rut_cliente.delete(0, "end"); self.edit_rut_cliente.insert(0, item_values[2])
+        self.edit_email_cliente.delete(0, "end"); self.edit_email_cliente.insert(0, item_values[3])
+        self.edit_telefono_cliente.delete(0, "end"); self.edit_telefono_cliente.insert(0, item_values[4] if item_values[4] else "")
+        self.toggle_edit_panel_cliente(True)
+
+    def agregar_cliente(self):
+        nombre = self.add_nombre_cliente.get()
+        rut = self.add_rut_cliente.get()
+        email = self.add_email_cliente.get()
+        telefono = self.add_telefono_cliente.get()
+
+        if not nombre or not rut:
+            messagebox.showwarning("Campos Vacíos", "El nombre y el RUT son obligatorios.")
+            return
+
+        try:
+            conn = self.db_connect(); cursor = conn.cursor()
+            cursor.execute("INSERT INTO clientes (nombre_completo, rut_documento, email, telefono) VALUES (?, ?, ?, ?)", (nombre, rut, email, telefono))
+            conn.commit(); conn.close()
+            
+            # Limpiar campos de entrada
+            self.add_nombre_cliente.delete(0, "end")
+            self.add_rut_cliente.delete(0, "end")
+            self.add_email_cliente.delete(0, "end")
+            self.add_telefono_cliente.delete(0, "end")
+            
+            self.refrescar_tabla_clientes()
+            messagebox.showinfo("Éxito", "Cliente agregado correctamente.")
+        except sqlite3.IntegrityError:
+            messagebox.showerror("Error", "Ya existe un cliente con ese RUT/Documento.")
+
+    def actualizar_cliente(self):
+        if not self.selected_client_id: return
+
+        nombre = self.edit_nombre_cliente.get()
+        rut = self.edit_rut_cliente.get()
+        email = self.edit_email_cliente.get()
+        telefono = self.edit_telefono_cliente.get()
+
+        if not nombre or not rut:
+            messagebox.showwarning("Campos Vacíos", "El nombre y el RUT son obligatorios.")
+            return
+
+        try:
+            conn = self.db_connect(); cursor = conn.cursor()
+            cursor.execute("UPDATE clientes SET nombre_completo = ?, rut_documento = ?, email = ?, telefono = ? WHERE id = ?", (nombre, rut, email, telefono, self.selected_client_id))
+            conn.commit(); conn.close()
+            self.refrescar_tabla_clientes()
+            self.limpiar_seleccion_cliente()
+            messagebox.showinfo("Éxito", "Cliente actualizado correctamente.")
+        except sqlite3.IntegrityError:
+            messagebox.showerror("Error", "Ya existe otro cliente con ese RUT/Documento.")
+
+    def eliminar_cliente(self):
+        if not self.selected_client_id: return
+        
+        # Verificar si el cliente tiene reservas
+        conn = self.db_connect(); cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM reservas WHERE id_cliente = ?", (self.selected_client_id,))
+        reservas_count = cursor.fetchone()[0]
+        
+        if reservas_count > 0:
+            messagebox.showerror("Error al Eliminar", f"No se puede eliminar el cliente.\nTiene {reservas_count} reserva(s) asociada(s).\nPor favor, gestione las reservas primero.")
+            conn.close()
+            return
+
+        if messagebox.askyesno("Confirmar Eliminación", f"¿Seguro que desea eliminar al cliente '{self.edit_nombre_cliente.get()}'? Esta acción no se puede deshacer."):
+            cursor.execute("DELETE FROM clientes WHERE id = ?", (self.selected_client_id,))
+            conn.commit(); conn.close()
+            self.refrescar_tabla_clientes()
+            self.limpiar_seleccion_cliente()
+            messagebox.showinfo("Éxito", "Cliente eliminado.")
+
+    def limpiar_seleccion_cliente(self):
+        if self.tree_clientes.focus(): self.tree_clientes.selection_remove(self.tree_clientes.focus())
+        self.selected_client_id = None
+        self.edit_nombre_cliente.delete(0, "end"); self.edit_rut_cliente.delete(0, "end"); self.edit_email_cliente.delete(0, "end"); self.edit_telefono_cliente.delete(0, "end")
+        self.edit_nombre_cliente.configure(placeholder_text="Seleccione un cliente de la lista")
+        self.toggle_edit_panel_cliente(False)
+
+    def toggle_edit_panel_cliente(self, enabled):
+        state = "normal" if enabled else "disabled"
+        for child in self.edit_frame_cliente.winfo_children():
+            if isinstance(child, (ctk.CTkEntry, ctk.CTkButton)):
+                child.configure(state=state)
 
     # --- VISTA Y LÓGICA DE GESTIÓN DE EDIFICIOS ---
     def setup_edificios_view(self, parent_container):
