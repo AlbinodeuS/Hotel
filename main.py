@@ -66,8 +66,9 @@ class HotelApp(ctk.CTk):
         self.selected_client_id = None
         self.selected_room_id = None
         self.selected_building_id_mgmt = None
-        self.selected_client_id = None # ID del cliente seleccionado
-
+        self.selected_reservation_id = None # ID de la reserva seleccionada
+        self.client_map = {} # Mapa de clientes para los menús
+        self.available_rooms_map = {} # Mapa de habitaciones disponibles
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
@@ -91,7 +92,7 @@ class HotelApp(ctk.CTk):
     def setup_nav_frame(self):
         nav_frame = ctk.CTkFrame(self, width=180, corner_radius=0)
         nav_frame.grid(row=1, column=0, sticky="nsew")
-        nav_frame.grid_rowconfigure(6, weight=1) # Aumentar el peso de la fila
+        nav_frame.grid_rowconfigure(7, weight=1) # Aumentar el peso de la fila
         ctk.CTkLabel(nav_frame, text="HotelPy", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=20, pady=20)
         self.btn_personal = ctk.CTkButton(nav_frame, text="Personal", command=self.mostrar_vista_personal)
         self.btn_personal.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
@@ -101,6 +102,9 @@ class HotelApp(ctk.CTk):
         # --- NUEVO BOTÓN DE CLIENTES ---
         self.btn_clientes = ctk.CTkButton(nav_frame, text="Clientes", command=self.mostrar_vista_clientes)
         self.btn_clientes.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
+        # --- BOTON RESERVAS ---
+        self.btn_reservas = ctk.CTkButton(nav_frame, text="Reservas", command=self.mostrar_vista_reservas)
+        self.btn_reservas.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
 
         ctk.CTkLabel(nav_frame, text="Administración", font=ctk.CTkFont(size=12, weight="bold", slant="italic")).grid(row=4, column=0, padx=20, pady=(20, 0), sticky="w")
         self.btn_edificios = ctk.CTkButton(nav_frame, text="Edificios", fg_color="#565b5e", hover_color="#6c7174", command=self.mostrar_vista_edificios)
@@ -149,6 +153,7 @@ class HotelApp(ctk.CTk):
         self.current_building_id = self.building_map.get(building_name)
         if self.current_view == "personal": self.mostrar_vista_personal()
         elif self.current_view == "habitaciones": self.mostrar_vista_habitaciones()
+        elif self.current_view == "reservas": self.mostrar_vista_reservas()
 
     def mostrar_vista_vacia(self, message):
         self.limpiar_frame_principal()
@@ -327,6 +332,185 @@ class HotelApp(ctk.CTk):
         for child in self.edit_frame_cliente.winfo_children():
             if isinstance(child, (ctk.CTkEntry, ctk.CTkButton)):
                 child.configure(state=state)
+    # --- VISTA Y LÓGICA DE GESTIÓN DE RESERVAS ---
+    def mostrar_vista_reservas(self):
+        self.current_view = "reservas"; self.top_frame.grid()
+        self.limpiar_frame_principal()
+        if not self.current_building_id: self.mostrar_vista_vacia("Seleccione un edificio para gestionar las reservas."); return
+        container = ctk.CTkFrame(self.main_frame, fg_color="transparent"); container.pack(fill="both", expand=True)
+        self.setup_reservas_view(container)
+
+    def setup_reservas_view(self, parent_container):
+        parent_container.grid_columnconfigure(0, weight=2); parent_container.grid_columnconfigure(1, weight=1); 
+        parent_container.grid_rowconfigure(1, weight=1)
+        ctk.CTkLabel(parent_container, text=f"Gestión de Reservas - {self.building_selector.get()}", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, columnspan=2, padx=10, pady=(10,15), sticky="w")
+        
+        # Panel Izquierdo: Tabla de Reservas
+        tabla_frame = ctk.CTkFrame(parent_container); tabla_frame.grid(row=1, column=0, sticky="nsew", padx=(10, 5))
+        tabla_frame.grid_columnconfigure(0, weight=1); tabla_frame.grid_rowconfigure(0, weight=1)
+        self.tree_reservas = ttk.Treeview(tabla_frame, columns=("ID", "Cliente", "Habitación", "Check-in", "Check-out"), show="headings")
+        self.tree_reservas.heading("ID", text="ID"); self.tree_reservas.column("ID", width=40, anchor="center")
+        self.tree_reservas.heading("Cliente", text="Cliente"); self.tree_reservas.column("Cliente", width=200)
+        self.tree_reservas.heading("Habitación", text="Habitación"); self.tree_reservas.column("Habitación", width=100, anchor="center")
+        self.tree_reservas.heading("Check-in", text="Check-in"); self.tree_reservas.column("Check-in", width=120, anchor="center")
+        self.tree_reservas.heading("Check-out", text="Check-out"); self.tree_reservas.column("Check-out", width=120, anchor="center")
+        self.tree_reservas.pack(fill="both", expand=True)
+        self.refrescar_tabla_reservas()
+        self.tree_reservas.bind("<<TreeviewSelect>>", self.on_reserva_select)
+        
+        # Panel Derecho: Acciones
+        acciones_frame = ctk.CTkFrame(parent_container, fg_color="transparent"); acciones_frame.grid(row=1, column=1, sticky="nsew", padx=(5, 10))
+        acciones_frame.grid_rowconfigure(1, weight=1)
+
+        # Formulario para Crear Reserva
+        crear_reserva_frame = ctk.CTkFrame(acciones_frame, border_width=1); crear_reserva_frame.grid(row=0, column=0, sticky="ew")
+        crear_reserva_frame.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(crear_reserva_frame, text="Crear Nueva Reserva", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=(10,5))
+        
+        ctk.CTkLabel(crear_reserva_frame, text="Cliente:").grid(row=1, column=0, padx=10, pady=(5,0), sticky="w")
+        self.reserva_cliente_selector = ctk.CTkOptionMenu(crear_reserva_frame, values=["Cargando..."]); self.reserva_cliente_selector.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
+        
+        ctk.CTkLabel(crear_reserva_frame, text="Habitación Disponible:").grid(row=3, column=0, padx=10, pady=(5,0), sticky="w")
+        self.reserva_habitacion_selector = ctk.CTkOptionMenu(crear_reserva_frame, values=["Cargando..."]); self.reserva_habitacion_selector.grid(row=4, column=0, padx=10, pady=5, sticky="ew")
+
+        ctk.CTkLabel(crear_reserva_frame, text="Fecha Check-in (AAAA-MM-DD):").grid(row=5, column=0, padx=10, pady=(5,0), sticky="w")
+        self.reserva_checkin_entry = ctk.CTkEntry(crear_reserva_frame); self.reserva_checkin_entry.grid(row=6, column=0, padx=10, pady=5, sticky="ew")
+
+        ctk.CTkLabel(crear_reserva_frame, text="Fecha Check-out (AAAA-MM-DD):").grid(row=7, column=0, padx=10, pady=(5,0), sticky="w")
+        self.reserva_checkout_entry = ctk.CTkEntry(crear_reserva_frame); self.reserva_checkout_entry.grid(row=8, column=0, padx=10, pady=5, sticky="ew")
+
+        ctk.CTkButton(crear_reserva_frame, text="Confirmar Reserva", command=self.crear_reserva).grid(row=9, column=0, padx=10, pady=10, sticky="ew")
+
+        # Panel para Cancelar Reserva
+        self.cancelar_reserva_frame = ctk.CTkFrame(acciones_frame, border_width=1); self.cancelar_reserva_frame.grid(row=1, column=0, sticky="sew", pady=(10,0))
+        self.cancelar_reserva_frame.grid_columnconfigure(0, weight=1)
+        self.label_cancelar = ctk.CTkLabel(self.cancelar_reserva_frame, text="Seleccione una reserva para cancelarla", wraplength=250)
+        self.label_cancelar.grid(row=0, column=0, padx=10, pady=10)
+        self.btn_cancelar_reserva = ctk.CTkButton(self.cancelar_reserva_frame, text="Cancelar Reserva Seleccionada", fg_color="red", hover_color="#C00000", command=self.cancelar_reserva, state="disabled")
+        self.btn_cancelar_reserva.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
+
+        self.actualizar_selectores_reserva()
+
+    def refrescar_tabla_reservas(self):
+        for item in self.tree_reservas.get_children(): self.tree_reservas.delete(item)
+        conn = self.db_connect(); cursor = conn.cursor()
+        query = """
+            SELECT r.id, c.nombre_completo, h.numero_habitacion, r.fecha_check_in, r.fecha_check_out
+            FROM reservas r
+            JOIN clientes c ON r.id_cliente = c.id
+            JOIN habitaciones h ON r.id_habitacion = h.id
+            WHERE h.id_edificio = ?
+            ORDER BY r.fecha_check_in DESC
+        """
+        for row in cursor.execute(query, (self.current_building_id,)):
+            self.tree_reservas.insert("", "end", values=row)
+        conn.close()
+
+    def actualizar_selectores_reserva(self):
+        # Actualizar clientes
+        conn = self.db_connect(); cursor = conn.cursor()
+        cursor.execute("SELECT id, nombre_completo FROM clientes ORDER BY nombre_completo")
+        clientes = cursor.fetchall()
+        self.client_map = {nombre: id for id, nombre in clientes}
+        lista_clientes = list(self.client_map.keys()) if self.client_map else ["No hay clientes"]
+        self.reserva_cliente_selector.configure(values=lista_clientes)
+        if lista_clientes[0] != "No hay clientes": self.reserva_cliente_selector.set(lista_clientes[0])
+
+        # Actualizar habitaciones disponibles
+        cursor.execute("SELECT id, numero_habitacion FROM habitaciones WHERE id_edificio = ? AND estado = 'Disponible' ORDER BY numero_habitacion", (self.current_building_id,))
+        habitaciones = cursor.fetchall()
+        self.available_rooms_map = {f"Hab. {num}": id for id, num in habitaciones}
+        lista_habitaciones = list(self.available_rooms_map.keys()) if self.available_rooms_map else ["No hay habitaciones disp."]
+        self.reserva_habitacion_selector.configure(values=lista_habitaciones)
+        if lista_habitaciones[0] != "No hay habitaciones disp.": self.reserva_habitacion_selector.set(lista_habitaciones[0])
+        conn.close()
+
+    def on_reserva_select(self, event):
+        selected_item = self.tree_reservas.focus()
+        if not selected_item: 
+            self.selected_reservation_id = None
+            self.btn_cancelar_reserva.configure(state="disabled")
+            return
+        item_values = self.tree_reservas.item(selected_item, "values")
+        self.selected_reservation_id = item_values[0]
+        self.label_cancelar.configure(text=f"Cancelar reserva de:\n{item_values[1]}\nHabitación: {item_values[2]}")
+        self.btn_cancelar_reserva.configure(state="normal")
+    
+    def crear_reserva(self):
+        cliente_nombre = self.reserva_cliente_selector.get()
+        habitacion_nombre = self.reserva_habitacion_selector.get()
+        check_in = self.reserva_checkin_entry.get()
+        check_out = self.reserva_checkout_entry.get()
+
+        if cliente_nombre == "No hay clientes" or habitacion_nombre == "No hay habitaciones disp.":
+            messagebox.showerror("Error", "Debe haber clientes y habitaciones disponibles para crear una reserva.")
+            return
+        
+        if not check_in or not check_out:
+            messagebox.showwarning("Campos incompletos", "Las fechas de Check-in y Check-out son obligatorias.")
+            return
+
+        cliente_id = self.client_map.get(cliente_nombre)
+        habitacion_id = self.available_rooms_map.get(habitacion_nombre)
+        
+        conn = self.db_connect(); cursor = conn.cursor()
+        try:
+            # Insertar la nueva reserva
+            cursor.execute("INSERT INTO reservas (id_cliente, id_habitacion, fecha_check_in, fecha_check_out) VALUES (?, ?, ?, ?)",
+                           (cliente_id, habitacion_id, check_in, check_out))
+            
+            # Actualizar el estado de la habitación
+            cursor.execute("UPDATE habitaciones SET estado = 'Ocupada', fecha_disponible = ? WHERE id = ?", (check_out, habitacion_id))
+            
+            conn.commit()
+            messagebox.showinfo("Éxito", "Reserva creada correctamente.")
+        except Exception as e:
+            conn.rollback()
+            messagebox.showerror("Error de base de datos", f"No se pudo crear la reserva: {e}")
+        finally:
+            conn.close()
+
+        # Limpiar campos y refrescar vistas
+        self.reserva_checkin_entry.delete(0, "end")
+        self.reserva_checkout_entry.delete(0, "end")
+        self.refrescar_tabla_reservas()
+        self.actualizar_selectores_reserva() # Para quitar la habitación de la lista de disponibles
+
+    def cancelar_reserva(self):
+        if not self.selected_reservation_id: return
+
+        if not messagebox.askyesno("Confirmar Cancelación", "¿Está seguro de que desea cancelar esta reserva? Esta acción cambiará el estado de la habitación a 'Disponible'."):
+            return
+
+        conn = self.db_connect(); cursor = conn.cursor()
+        try:
+            # Obtener el ID de la habitación antes de borrar la reserva
+            cursor.execute("SELECT id_habitacion FROM reservas WHERE id = ?", (self.selected_reservation_id,))
+            result = cursor.fetchone()
+            if not result:
+                messagebox.showerror("Error", "No se encontró la reserva.")
+                return
+            habitacion_id = result[0]
+            
+            # Eliminar la reserva
+            cursor.execute("DELETE FROM reservas WHERE id = ?", (self.selected_reservation_id,))
+            
+            # Actualizar la habitación a 'Disponible'
+            cursor.execute("UPDATE habitaciones SET estado = 'Disponible', fecha_disponible = NULL WHERE id = ?", (habitacion_id,))
+            
+            conn.commit()
+            messagebox.showinfo("Éxito", "La reserva ha sido cancelada.")
+        except Exception as e:
+            conn.rollback()
+            messagebox.showerror("Error de base de datos", f"No se pudo cancelar la reserva: {e}")
+        finally:
+            conn.close()
+        
+        self.selected_reservation_id = None
+        self.btn_cancelar_reserva.configure(state="disabled")
+        self.label_cancelar.configure(text="Seleccione una reserva para cancelarla")
+        self.refrescar_tabla_reservas()
+        self.actualizar_selectores_reserva() # La habitación volverá a estar disponible
 
     # --- VISTA Y LÓGICA DE GESTIÓN DE EDIFICIOS ---
     def setup_edificios_view(self, parent_container):
