@@ -91,10 +91,9 @@ class HotelApp(ctk.CTk):
         self.building_selector = ctk.CTkOptionMenu(self.top_frame, values=[""], command=self.on_building_change)
         self.building_selector.pack(side="left", padx=10, pady=10)
 
-    def setup_nav_frame(self):
+def setup_nav_frame(self):
     nav_frame = ctk.CTkFrame(self, width=180, corner_radius=0)
     nav_frame.grid(row=1, column=0, sticky="nsew")
-    # El peso debe estar en la fila DESPUÉS del último widget, ajustado a 8.
     nav_frame.grid_rowconfigure(8, weight=1) 
     
     ctk.CTkLabel(nav_frame, text="HotelPy", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=20, pady=20)
@@ -114,10 +113,8 @@ class HotelApp(ctk.CTk):
     self.btn_servicios = ctk.CTkButton(nav_frame, text="Servicios", command=self.mostrar_vista_servicios)
     self.btn_servicios.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
     
-
-    ctk.CTkLabel(nav_frame, text="Administración", font=ctk.CTkFont(size=12, weight="bold", slant="italic")).grid(row=6, column=0, padx=20, pady=(20, 0), sticky="w")
     
-    # ---Boton Edificios ---
+    ctk.CTkLabel(nav_frame, text="Administración", font=ctk.CTkFont(size=12, weight="bold", slant="italic")).grid(row=6, column=0, padx=20, pady=(20, 0), sticky="w")
     self.btn_edificios = ctk.CTkButton(nav_frame, text="Edificios", fg_color="#565b5e", hover_color="#6c7174", command=self.mostrar_vista_edificios)
     self.btn_edificios.grid(row=7, column=0, padx=20, pady=10, sticky="ew")
 
