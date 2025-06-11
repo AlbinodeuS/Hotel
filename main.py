@@ -68,12 +68,14 @@ class HotelApp(ctk.CTk):
         self.selected_client_id = None
         self.selected_room_id = None
         self.selected_building_id_mgmt = None
-        self.selected_reservation_id = None # ID de la reserva seleccionada
-        self.selected_service_id = None # ID del servicio seleccionado
+        self.selected_reservation_id = None
+        self.selected_service_id = None
         
-        self.client_map = {} # Mapa de clientes para los menús
-        self.available_rooms_map = {} # Mapa de habitaciones disponibles
+        self.client_map = {}
+        self.available_rooms_map = {}
+        
         self.cl_tz = pytz.timezone('America/Santiago')
+        
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
@@ -100,23 +102,16 @@ class HotelApp(ctk.CTk):
         nav_frame.grid_rowconfigure(8, weight=1) 
         
         ctk.CTkLabel(nav_frame, text="HotelPy", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=20, pady=20)
-        
         self.btn_personal = ctk.CTkButton(nav_frame, text="Personal", command=self.mostrar_vista_personal)
         self.btn_personal.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
-        
         self.btn_habitaciones = ctk.CTkButton(nav_frame, text="Habitaciones", command=self.mostrar_vista_habitaciones)
         self.btn_habitaciones.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
-        
         self.btn_clientes = ctk.CTkButton(nav_frame, text="Clientes", command=self.mostrar_vista_clientes)
         self.btn_clientes.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
-
         self.btn_reservas = ctk.CTkButton(nav_frame, text="Reservas", command=self.mostrar_vista_reservas)
         self.btn_reservas.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
-
         self.btn_servicios = ctk.CTkButton(nav_frame, text="Servicios", command=self.mostrar_vista_servicios)
         self.btn_servicios.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
-        
-        
         ctk.CTkLabel(nav_frame, text="Administración", font=ctk.CTkFont(size=12, weight="bold", slant="italic")).grid(row=6, column=0, padx=20, pady=(20, 0), sticky="w")
         self.btn_edificios = ctk.CTkButton(nav_frame, text="Edificios", fg_color="#565b5e", hover_color="#6c7174", command=self.mostrar_vista_edificios)
         self.btn_edificios.grid(row=7, column=0, padx=20, pady=10, sticky="ew")
@@ -132,17 +127,13 @@ class HotelApp(ctk.CTk):
         if not edificios: edificios = ["Sin edificios"]
         current_selection = self.building_selector.get()
         self.building_selector.configure(values=edificios)
-        if current_selection in edificios:
+        if current_selection in edificios and current_selection != "Sin edificios":
             self.building_selector.set(current_selection)
-            self.on_building_change(current_selection)
-        elif edificios[0] != "Sin edificios":
+        elif edificios and edificios[0] != "Sin edificios":
             self.building_selector.set(edificios[0])
-            self.on_building_change(edificios[0])
         else:
             self.building_selector.set("Sin edificios")
-            self.current_building_id = None
-            if self.current_view != "edificios":
-                self.mostrar_vista_vacia("No hay edificios. Agregue uno para empezar.")
+        self.on_building_change(self.building_selector.get())
             
     def get_all_buildings_for_map(self):
         conn = self.db_connect(); cursor = conn.cursor()
@@ -171,6 +162,7 @@ class HotelApp(ctk.CTk):
         self.limpiar_frame_principal()
         ctk.CTkLabel(self.main_frame, text=message, font=ctk.CTkFont(size=18)).pack(expand=True, padx=20, pady=20)
 
+    # --- Vistas Principales ---
     def mostrar_vista_personal(self):
         self.current_view = "personal"; self.top_frame.grid()
         self.limpiar_frame_principal()
@@ -190,16 +182,27 @@ class HotelApp(ctk.CTk):
         self.limpiar_frame_principal()
         container = ctk.CTkFrame(self.main_frame, fg_color="transparent"); container.pack(fill="both", expand=True)
         self.setup_edificios_view(container)
-        
-    # --- CRUD Clientes ---
+    
     def mostrar_vista_clientes(self):
-        self.current_view = "clientes"
-        self.top_frame.grid_remove()
+        self.current_view = "clientes"; self.top_frame.grid_remove()
         self.limpiar_frame_principal()
-        container = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        container.pack(fill="both", expand=True)
+        container = ctk.CTkFrame(self.main_frame, fg_color="transparent"); container.pack(fill="both", expand=True)
         self.setup_clientes_view(container)
+    
+    def mostrar_vista_reservas(self):
+        self.current_view = "reservas"; self.top_frame.grid()
+        self.limpiar_frame_principal()
+        if not self.current_building_id: self.mostrar_vista_vacia("Seleccione un edificio para gestionar las reservas."); return
+        container = ctk.CTkFrame(self.main_frame, fg_color="transparent"); container.pack(fill="both", expand=True)
+        self.setup_reservas_view(container)
 
+    def mostrar_vista_servicios(self):
+        self.current_view = "servicios"; self.top_frame.grid_remove()
+        self.limpiar_frame_principal()
+        container = ctk.CTkFrame(self.main_frame, fg_color="transparent"); container.pack(fill="both", expand=True)
+        self.setup_servicios_view(container)
+
+    # --- CRUD Clientes ---
     def setup_clientes_view(self, parent_container):
         parent_container.grid_columnconfigure(0, weight=1); parent_container.grid_rowconfigure(1, weight=3); parent_container.grid_rowconfigure(2, weight=1)
         ctk.CTkLabel(parent_container, text="Gestión de Clientes", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=10, pady=(10,15), sticky="w")
@@ -255,7 +258,7 @@ class HotelApp(ctk.CTk):
         
         self.edit_nombre_cliente.delete(0, "end"); self.edit_nombre_cliente.insert(0, item_values[1])
         self.edit_rut_cliente.delete(0, "end"); self.edit_rut_cliente.insert(0, item_values[2])
-        self.edit_email_cliente.delete(0, "end"); self.edit_email_cliente.insert(0, item_values[3])
+        self.edit_email_cliente.delete(0, "end"); self.edit_email_cliente.insert(0, item_values[3] if item_values[3] else "")
         self.edit_telefono_cliente.delete(0, "end"); self.edit_telefono_cliente.insert(0, item_values[4] if item_values[4] else "")
         self.toggle_edit_panel_cliente(True)
 
@@ -274,10 +277,8 @@ class HotelApp(ctk.CTk):
             cursor.execute("INSERT INTO clientes (nombre_completo, rut_documento, email, telefono) VALUES (?, ?, ?, ?)", (nombre, rut, email, telefono))
             conn.commit(); conn.close()
             
-            self.add_nombre_cliente.delete(0, "end")
-            self.add_rut_cliente.delete(0, "end")
-            self.add_email_cliente.delete(0, "end")
-            self.add_telefono_cliente.delete(0, "end")
+            self.add_nombre_cliente.delete(0, "end"); self.add_rut_cliente.delete(0, "end")
+            self.add_email_cliente.delete(0, "end"); self.add_telefono_cliente.delete(0, "end")
             
             self.refrescar_tabla_clientes()
             messagebox.showinfo("Éxito", "Cliente agregado correctamente.")
@@ -308,9 +309,9 @@ class HotelApp(ctk.CTk):
     def eliminar_cliente(self):
         if not self.selected_client_id: return
         
-            conn = self.db_connect(); cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM reservas WHERE id_cliente = ?", (self.selected_client_id,))
-            reservas_count = cursor.fetchone()[0]
+        conn = self.db_connect(); cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM reservas WHERE id_cliente = ?", (self.selected_client_id,))
+        reservas_count = cursor.fetchone()[0]
         
         if reservas_count > 0:
             messagebox.showerror("Error al Eliminar", f"No se puede eliminar el cliente.\nTiene {reservas_count} reserva(s) asociada(s).\nPor favor, gestione las reservas primero.")
@@ -319,7 +320,8 @@ class HotelApp(ctk.CTk):
 
         if messagebox.askyesno("Confirmar Eliminación", f"¿Seguro que desea eliminar al cliente '{self.edit_nombre_cliente.get()}'? Esta acción no se puede deshacer."):
             cursor.execute("DELETE FROM clientes WHERE id = ?", (self.selected_client_id,))
-            conn.commit(); conn.close()
+            conn.commit()
+            conn.close()
             self.refrescar_tabla_clientes()
             self.limpiar_seleccion_cliente()
             messagebox.showinfo("Éxito", "Cliente eliminado.")
@@ -338,13 +340,6 @@ class HotelApp(ctk.CTk):
                 child.configure(state=state)
 
     # --- CRUD Reservas ---
-    def mostrar_vista_reservas(self):
-        self.current_view = "reservas"; self.top_frame.grid()
-        self.limpiar_frame_principal()
-        if not self.current_building_id: self.mostrar_vista_vacia("Seleccione un edificio para gestionar las reservas."); return
-        container = ctk.CTkFrame(self.main_frame, fg_color="transparent"); container.pack(fill="both", expand=True)
-        self.setup_reservas_view(container)
-
     def setup_reservas_view(self, parent_container):
         parent_container.grid_columnconfigure(0, weight=2); parent_container.grid_columnconfigure(1, weight=1); 
         parent_container.grid_rowconfigure(1, weight=1)
@@ -377,9 +372,10 @@ class HotelApp(ctk.CTk):
 
         ctk.CTkLabel(crear_reserva_frame, text="Fecha Check-in (DD-MM-AAAA):").grid(row=5, column=0, padx=10, pady=(5,0), sticky="w")
         self.reserva_checkin_entry = ctk.CTkEntry(crear_reserva_frame, placeholder_text="DD-MM-AAAA"); self.reserva_checkin_entry.grid(row=6, column=0, padx=10, pady=5, sticky="ew")
-         # Inserta la fecha actual de Chile en el campo de Check-in
+        
         now_cl = datetime.now(self.cl_tz)
         self.reserva_checkin_entry.insert(0, now_cl.strftime('%d-%m-%Y'))
+
         ctk.CTkLabel(crear_reserva_frame, text="Fecha Check-out (DD-MM-AAAA):").grid(row=7, column=0, padx=10, pady=(5,0), sticky="w")
         self.reserva_checkout_entry = ctk.CTkEntry(crear_reserva_frame, placeholder_text="DD-MM-AAAA"); self.reserva_checkout_entry.grid(row=8, column=0, padx=10, pady=5, sticky="ew")
 
@@ -406,15 +402,13 @@ class HotelApp(ctk.CTk):
             ORDER BY r.fecha_check_in DESC
         """
         for row in cursor.execute(query, (self.current_building_id,)):
-            try
-            # Convierte de AAAA-MM-DD a DD-MM-AAAA
-            check_in_dt = datetime.strptime(row[3], '%Y-%m-%d').strftime('%d-%m-%Y')
-            check_out_dt = datetime.strptime(row[4], '%Y-%m-%d').strftime('%d-%m-%Y')
+            try:
+                check_in_dt = datetime.strptime(row[3], '%Y-%m-%d').strftime('%d-%m-%Y')
+                check_out_dt = datetime.strptime(row[4], '%Y-%m-%d').strftime('%d-%m-%Y')
             except (ValueError, TypeError):
-            # Si el formato es inesperado, muestra el dato original
-            check_in_dt, check_out_dt = row[3], row[4] 
+                check_in_dt, check_out_dt = row[3], row[4] 
 
-            self.tree_reservas.insert("", "end", values=row)
+            self.tree_reservas.insert("", "end", values=(row[0], row[1], row[2], check_in_dt, check_out_dt))
         conn.close()
 
     def actualizar_selectores_reserva(self):
@@ -424,14 +418,14 @@ class HotelApp(ctk.CTk):
         self.client_map = {nombre: id for id, nombre in clientes}
         lista_clientes = list(self.client_map.keys()) if self.client_map else ["No hay clientes"]
         self.reserva_cliente_selector.configure(values=lista_clientes)
-        if lista_clientes[0] != "No hay clientes": self.reserva_cliente_selector.set(lista_clientes[0])
+        if lista_clientes and lista_clientes[0] != "No hay clientes": self.reserva_cliente_selector.set(lista_clientes[0])
 
         cursor.execute("SELECT id, numero_habitacion FROM habitaciones WHERE id_edificio = ? AND estado = 'Disponible' ORDER BY numero_habitacion", (self.current_building_id,))
         habitaciones = cursor.fetchall()
         self.available_rooms_map = {f"Hab. {num}": id for id, num in habitaciones}
         lista_habitaciones = list(self.available_rooms_map.keys()) if self.available_rooms_map else ["No hay habitaciones disp."]
         self.reserva_habitacion_selector.configure(values=lista_habitaciones)
-        if lista_habitaciones[0] != "No hay habitaciones disp.": self.reserva_habitacion_selector.set(lista_habitaciones[0])
+        if lista_habitaciones and lista_habitaciones[0] != "No hay habitaciones disp.": self.reserva_habitacion_selector.set(lista_habitaciones[0])
         conn.close()
 
     def on_reserva_select(self, event):
@@ -448,39 +442,40 @@ class HotelApp(ctk.CTk):
     def crear_reserva(self):
         cliente_nombre = self.reserva_cliente_selector.get()
         habitacion_nombre = self.reserva_habitacion_selector.get()
-        check_in = self.reserva_checkin_entry.get()
-        check_out = self.reserva_checkout_entry.get()
+        check_in_str = self.reserva_checkin_entry.get().strip()
+        check_out_str = self.reserva_checkout_entry.get().strip()
 
         if cliente_nombre == "No hay clientes" or habitacion_nombre == "No hay habitaciones disp.":
             messagebox.showerror("Error", "Debe haber clientes y habitaciones disponibles para crear una reserva.")
             return
         
-        if not check_in or not check_out:
+        if not check_in_str or not check_out_str:
             messagebox.showwarning("Campos incompletos", "Las fechas de Check-in y Check-out son obligatorias.")
             return
-        try:
-        check_in_dt = datetime.strptime(check_in_str, '%d-%m-%Y')
-        check_out_dt = datetime.strptime(check_out_str, '%d-%m-%Y')
-        
-        if check_out_dt <= check_in_dt:
-            messagebox.showerror("Error de Fechas", "La fecha de Check-out debe ser posterior a la de Check-in.")
-            return
 
-        # Convertir a formato AAAA-MM-DD para la base de datos
-        check_in_db = check_in_dt.strftime('%Y-%m-%d')
-        check_out_db = check_out_dt.strftime('%Y-%m-%d')
+        try:
+            check_in_dt = datetime.strptime(check_in_str, '%d-%m-%Y')
+            check_out_dt = datetime.strptime(check_out_str, '%d-%m-%Y')
+            
+            if check_out_dt <= check_in_dt:
+                messagebox.showerror("Error de Fechas", "La fecha de Check-out debe ser posterior a la de Check-in.")
+                return
+
+            check_in_db = check_in_dt.strftime('%Y-%m-%d')
+            check_out_db = check_out_dt.strftime('%Y-%m-%d')
         except ValueError:
             messagebox.showerror("Error de Formato", "Use el formato DD-MM-AAAA para las fechas.")
-        return
+            return
+
         cliente_id = self.client_map.get(cliente_nombre)
         habitacion_id = self.available_rooms_map.get(habitacion_nombre)
         
         conn = self.db_connect(); cursor = conn.cursor()
         try:
             cursor.execute("INSERT INTO reservas (id_cliente, id_habitacion, fecha_check_in, fecha_check_out) VALUES (?, ?, ?, ?)",
-                           (cliente_id, habitacion_id, check_in, check_out))
+                           (cliente_id, habitacion_id, check_in_db, check_out_db))
             
-            cursor.execute("UPDATE habitaciones SET estado = 'Ocupada', fecha_disponible = ? WHERE id = ?", (check_out, habitacion_id))
+            cursor.execute("UPDATE habitaciones SET estado = 'Ocupada', fecha_disponible = ? WHERE id = ?", (check_out_db, habitacion_id))
             
             conn.commit()
             messagebox.showinfo("Éxito", "Reserva creada correctamente.")
@@ -492,6 +487,8 @@ class HotelApp(ctk.CTk):
 
         self.reserva_checkin_entry.delete(0, "end")
         self.reserva_checkout_entry.delete(0, "end")
+        now_cl = datetime.now(self.cl_tz)
+        self.reserva_checkin_entry.insert(0, now_cl.strftime('%d-%m-%Y'))
         self.refrescar_tabla_reservas()
         self.actualizar_selectores_reserva()
 
@@ -530,14 +527,6 @@ class HotelApp(ctk.CTk):
         self.actualizar_selectores_reserva()
 
     # --- CRUD Servicios Adicionales ---
-    def mostrar_vista_servicios(self):
-        self.current_view = "servicios"
-        self.top_frame.grid_remove()
-        self.limpiar_frame_principal()
-        container = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        container.pack(fill="both", expand=True)
-        self.setup_servicios_view(container)
-
     def setup_servicios_view(self, parent_container):
         parent_container.grid_columnconfigure(0, weight=1); parent_container.grid_rowconfigure(1, weight=3); parent_container.grid_rowconfigure(2, weight=1)
         ctk.CTkLabel(parent_container, text="Gestión de Servicios Adicionales", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=10, pady=(10,15), sticky="w")
@@ -715,7 +704,7 @@ class HotelApp(ctk.CTk):
         self.toggle_edit_panel_edificio(True)
 
     def agregar_edificio(self):
-        nombre = self.add_nombre_edificio.get(); direccion = self.add_direccion_edificio.get().strip()
+        nombre = self.add_nombre_edificio.get().strip(); direccion = self.add_direccion_edificio.get().strip()
         if nombre and direccion:
             try:
                 conn = self.db_connect(); cursor = conn.cursor()
@@ -728,7 +717,7 @@ class HotelApp(ctk.CTk):
 
     def actualizar_edificio(self):
         if not self.selected_building_id_mgmt: return
-        nombre = self.edit_nombre_edificio.get(); direccion = self.edit_direccion_edificio.get().strip()
+        nombre = self.edit_nombre_edificio.get().strip(); direccion = self.edit_direccion_edificio.get().strip()
         if nombre and direccion:
             conn = self.db_connect(); cursor = conn.cursor()
             cursor.execute("UPDATE edificios SET nombre = ?, direccion = ? WHERE id = ?", (nombre, direccion, self.selected_building_id_mgmt))
@@ -814,11 +803,11 @@ class HotelApp(ctk.CTk):
         item_values = self.tree_personal.item(selected_item, "values"); self.selected_staff_id = item_values[0]
         self.edit_nombre_staff.delete(0, "end"); self.edit_nombre_staff.insert(0, item_values[1])
         self.edit_puesto_staff.delete(0, "end"); self.edit_puesto_staff.insert(0, item_values[2])
-        self.edit_telefono_staff.delete(0, "end"); self.edit_telefono_staff.insert(0, item_values[3])
+        self.edit_telefono_staff.delete(0, "end"); self.edit_telefono_staff.insert(0, item_values[3] if item_values[3] else "")
         self.toggle_edit_panel_staff(True)
 
     def agregar_personal(self):
-        nombre = self.add_nombre_staff.get(); puesto = self.add_puesto_staff.get().strip(); telefono = self.add_telefono_staff.get().strip()
+        nombre = self.add_nombre_staff.get().strip(); puesto = self.add_puesto_staff.get().strip(); telefono = self.add_telefono_staff.get().strip()
         if nombre and puesto:
             conn = self.db_connect(); cursor = conn.cursor()
             cursor.execute("INSERT INTO personal (id_edificio, nombre_completo, puesto, telefono) VALUES (?, ?, ?, ?)", (self.current_building_id, nombre, puesto, telefono))
@@ -829,10 +818,13 @@ class HotelApp(ctk.CTk):
     
     def actualizar_personal(self):
         if not self.selected_staff_id: return
-        conn = self.db_connect(); cursor = conn.cursor()
-        cursor.execute("UPDATE personal SET nombre_completo = ?, puesto = ?, telefono = ? WHERE id = ?", (self.edit_nombre_staff.get(), self.edit_puesto_staff.get().strip(), self.edit_telefono_staff.get(), self.selected_staff_id))
-        conn.commit(); conn.close()
-        self.refrescar_tabla_personal(); self.limpiar_seleccion_personal()
+        nombre = self.edit_nombre_staff.get().strip(); puesto = self.edit_puesto_staff.get().strip(); telefono = self.edit_telefono_staff.get().strip()
+        if nombre and puesto:
+            conn = self.db_connect(); cursor = conn.cursor()
+            cursor.execute("UPDATE personal SET nombre_completo = ?, puesto = ?, telefono = ? WHERE id = ?", (nombre, puesto, telefono, self.selected_staff_id))
+            conn.commit(); conn.close()
+            self.refrescar_tabla_personal(); self.limpiar_seleccion_personal()
+        else: messagebox.showwarning("Campos Vacíos", "El nombre y el puesto son obligatorios.")
 
     def eliminar_personal(self):
         if not self.selected_staff_id: return
@@ -889,28 +881,26 @@ class HotelApp(ctk.CTk):
         self.toggle_edit_panel_room(False)
 
     def refrescar_tabla_habitaciones(self):
-    for item in self.tree_habitaciones.get_children(): self.tree_habitaciones.delete(item)
-    if not self.current_building_id: return
-    conn = self.db_connect(); cursor = conn.cursor()
-    query = """SELECT h.id, h.numero_habitacion, h.tipo, h.estado, h.fecha_disponible, p.nombre_completo FROM habitaciones h LEFT JOIN personal p ON h.id_personal_asignado = p.id WHERE h.id_edificio = ?"""
-    for row in cursor.execute(query, (self.current_building_id,)):
-        personal = row[5] if row[5] else "Sin asignar"
-        fecha_db = row[4]
-        display_fecha = ""
-        
-        # --- CÓDIGO CORREGIDO PARA FORMATEAR LA FECHA ---
-        if fecha_db:
-            try: # Intenta convertir formato con fecha y hora
-                display_fecha = datetime.strptime(fecha_db, '%Y-%m-%d %H:%M:%S').strftime('%d-%m-%Y %H:%M')
-            except ValueError:
-                try: # Si falla, intenta convertir solo la fecha
-                    display_fecha = datetime.strptime(fecha_db, '%Y-%m-%d').strftime('%d-%m-%Y')
-                except (ValueError, TypeError):
-                    display_fecha = fecha_db # Si todo falla, muestra el dato original
-        # --- FIN DE LA CORRECCIÓN ---
-        
-        self.tree_habitaciones.insert("", "end", values=(row[0], row[1], row[2], row[3], display_fecha, personal))
-    conn.close()
+        for item in self.tree_habitaciones.get_children(): self.tree_habitaciones.delete(item)
+        if not self.current_building_id: return
+        conn = self.db_connect(); cursor = conn.cursor()
+        query = """SELECT h.id, h.numero_habitacion, h.tipo, h.estado, h.fecha_disponible, p.nombre_completo FROM habitaciones h LEFT JOIN personal p ON h.id_personal_asignado = p.id WHERE h.id_edificio = ?"""
+        for row in cursor.execute(query, (self.current_building_id,)):
+            personal = row[5] if row[5] else "Sin asignar"
+            fecha_db = row[4]
+            display_fecha = ""
+            
+            if fecha_db:
+                try:
+                    display_fecha = datetime.strptime(fecha_db, '%Y-%m-%d %H:%M:%S').strftime('%d-%m-%Y %H:%M')
+                except ValueError:
+                    try:
+                        display_fecha = datetime.strptime(fecha_db, '%Y-%m-%d').strftime('%d-%m-%Y')
+                    except (ValueError, TypeError):
+                        display_fecha = fecha_db
+            
+            self.tree_habitaciones.insert("", "end", values=(row[0], row[1], row[2], row[3], display_fecha, personal))
+        conn.close()
 
     def on_room_select(self, event):
         selected_item = self.tree_habitaciones.focus()
@@ -923,7 +913,8 @@ class HotelApp(ctk.CTk):
         self.toggle_edit_panel_room(True)
 
     def agregar_habitacion(self):
-        numero = self.add_numero_hab.get().strip(); tipo = self.add_tipo_hab.get().strip()
+        numero = self.add_numero_hab.get().strip()
+        tipo = self.add_tipo_hab.get()
         if numero and tipo:
             conn = self.db_connect(); cursor = conn.cursor()
             cursor.execute("INSERT INTO habitaciones (id_edificio, numero_habitacion, tipo) VALUES (?, ?, ?)", (self.current_building_id, numero, tipo))
@@ -933,20 +924,21 @@ class HotelApp(ctk.CTk):
 
     def actualizar_habitacion(self):
         if not self.selected_room_id: return
-        nuevo_estado = self.edit_estado_hab.get(); fecha_disp = None
+        nuevo_estado = self.edit_estado_hab.get()
+        fecha_disp = None
+        
         if nuevo_estado in ["Ocupada", "Mantenimiento"]:
             dialog = ctk.CTkInputDialog(text=f"¿Hasta qué fecha/hora estará '{nuevo_estado}'?\nFormato: DD-MM-AAAA HH:MM", title="Confirmar Fecha")
-        fecha_input = dialog.get_input()
-        if not fecha_input: return
+            fecha_input = dialog.get_input()
+            if not fecha_input: return
 
-        try:
-            # Valida el formato de entrada
-            fecha_dt = datetime.strptime(fecha_input.strip(), '%d-%m-%Y %H:%M')
-            # Convierte a formato de DB
-            fecha_disp = fecha_dt.strftime('%Y-%m-%d %H:%M:%S')
-        except ValueError:
-            messagebox.showerror("Error de Formato", "El formato de fecha y hora no es válido.\nUse DD-MM-AAAA HH:MM")
-            return
+            try:
+                fecha_dt = datetime.strptime(fecha_input.strip(), '%d-%m-%Y %H:%M')
+                fecha_disp = fecha_dt.strftime('%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                messagebox.showerror("Error de Formato", "El formato de fecha y hora no es válido.\nUse DD-MM-AAAA HH:MM")
+                return
+        
         personal_nombre = self.edit_personal_hab.get()
         personal_id = self.personal_map.get(personal_nombre) if personal_nombre != "Ninguno" else None
         params = (nuevo_estado, personal_id, fecha_disp if nuevo_estado != "Disponible" else None, self.selected_room_id)
